@@ -19,14 +19,22 @@ public class CollaborativeFiltering {
         Correlation correlation = new Correlation(AllUsers);
         System.out.println("Correlation Matrix Calculation Finished.");
 
-        Map<Integer, User> TestUsers = parseUsers(TESTINGDATA);
-        Set<Map.Entry<Integer, User>> tUsers = TestUsers.entrySet();
+        int j = 0;
+        for (double[] d : correlation.weights) {
+            for (double dd : d) System.out.print(dd + " ");
+            System.out.println();
+            if (j++ == 1000) break;
+        }
+
+        //Map<Integer, User> TestUsers = parseUsers(TESTINGDATA);
+
         //partition the test user user in order to do multi-thread batch
-        List<Map.Entry<Integer, User>> tusers = new ArrayList<>(tUsers);
-        int size = tusers.size();
-        predictVote(correlation, tusers.subList(0, size / 3), AllUsers);
-        predictVote(correlation, tusers.subList(size / 3, 2 * size / 3), AllUsers);
-        predictVote(correlation, tusers.subList(2 * size / 3, size - 1), AllUsers);
+//        Set<Map.Entry<Integer, User>> tUsers = TestUsers.entrySet();
+//        List<Map.Entry<Integer, User>> tusers = new ArrayList<>(tUsers);
+//        int size = tusers.size();
+//        predictVote(correlation, tusers.subList(0, size / 3), AllUsers);
+//        predictVote(correlation, tusers.subList(size / 3, 2 * size / 3), AllUsers);
+//        predictVote(correlation, tusers.subList(2 * size / 3, size - 1), AllUsers);
 
         System.out.println("Time consumption(s): " + (System.nanoTime() - start) * 1.0e-9);
         memoStat();
@@ -36,11 +44,9 @@ public class CollaborativeFiltering {
         new Thread(() -> {
             for (Map.Entry<Integer, User> entry : tusers) {
                 User activeUser = entry.getValue();
-                int uId = entry.getKey();
-
                 for (int mid : activeUser.ratings.keySet()) {
-                    double pv = activeUser.predictedVote(correlation, uId, mid, allUsers);
-                    System.out.println("user id: " + uId + " predicted vote for movie " + mid + ": " + pv);
+                    double pv = activeUser.predictedVote(correlation, allUsers, mid);
+                    System.out.println("user id: " + activeUser.userId + " predicted vote for movie " + mid + ": " + pv);
                 }
             }
         }).start();
@@ -59,7 +65,7 @@ public class CollaborativeFiltering {
                 if (users.containsKey(v[1])) {
                     users.get(v[1]).ratings.put(v[0], v[2]);
                 } else {
-                    users.put(v[1], new User(v[0], v[2]));
+                    users.put(v[1], new User(v[0], v[1], v[2]));
                 }
             }
         } catch (IOException e) {
@@ -101,8 +107,11 @@ class User {
     //key-Movie Id; value-vote(1-5), the average size is 112 based on given information
     Map<Integer, Integer> ratings = new HashMap<>();
 
+    int userId;
+
     //Construct a user by its first rating record
-    public User(int mid, int vote) {
+    public User(int mid, int uid, int vote) {
+        userId = uid;
         ratings.put(mid, vote);
     }
 
@@ -120,12 +129,13 @@ class User {
         meanVote = (double) ratings.values().stream().mapToInt(Integer::intValue).sum() / ratings.size();
     }
 
-    double predictedVote(Correlation core, int uid, int mid, Map<Integer, User> users) {
+    //Method used to calculate the predicted rating for one movie
+    double predictedVote(Correlation core, Map<Integer, User> users, int mid) {
         //if (getRating(mid)!=0) return getRating(mid);
         double result = 0;
         double k = 0;
         for (Map.Entry<Integer, User> entry : users.entrySet()) {
-            double weight = core.getWeight(uid, entry.getKey());
+            double weight = core.getWeight(userId, entry.getKey());
             if (weight == 0) continue;
             k += Math.abs(weight);
             result += entry.getValue().ratingMeanError(mid) * weight;
@@ -140,7 +150,7 @@ class User {
 class Correlation {
 
     //weights[i][j] represents the correlation between user i and j
-    private double[][] weights;
+    double[][] weights;
 
     //The users among which weights are calculated
     private List<Integer> userIds;
@@ -162,6 +172,7 @@ class Correlation {
                 //calculate the correlation between user i and user j
                 User u2 = users.get(userIds.get(j));
                 bothVoted.retainAll(u2.ratings.keySet());
+                if (bothVoted.isEmpty()) continue;
                 double s1 = 0, s2 = 0, s3 = 0;
                 for (int k : bothVoted) {
                     double v1 = u1.meanError(k);
@@ -170,7 +181,7 @@ class Correlation {
                     s2 += v1 * v1;
                     s3 += v2 * v2;
                 }
-                weights[i][j] = s2 == 0 || s3 == 0 ? 0 : s1 / Math.sqrt(s2 * s3);
+                if ((s3 *= s2) != 0) weights[i][j] = s1 / Math.sqrt(s3);
             }
             weights[i][i] = 1;
         }
@@ -178,8 +189,8 @@ class Correlation {
 
     //If user id has never appeared in training database just return 0;
     double getWeight(int id1, int id2) {
-        int i = userIds.indexOf(id1);
-        int j = userIds.indexOf(id2);
+        int i = userIds.indexOf(id1);//---------------------------------------!!!!!!!!!!!!!!!!!!!!!!!!!!!!!performance critical
+        int j = userIds.indexOf(id2);//---------------------------------------!!!!!!!!!!!!!!!!!!!!!!!!!!!!!performance critical
         if (i != -1 && j != -1) {
             if (i > j) return weights[i][j];
             return weights[j][i];
