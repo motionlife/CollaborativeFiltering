@@ -15,22 +15,29 @@ public class CollaborativeFiltering {
 
     public static void main(String[] args) {
         long start = System.nanoTime();
-
+        double MAE = 0, RMSE = 0;
         User[] allUsers = parseUsers(TRAININGDATA);
         Correlation core = new Correlation(allUsers);
         System.out.println("Matrix Calculation Finished.\nTime consumption(s): " + (System.nanoTime() - start) * 1.0e-9);
         User[] testUsers = parseUsers(TESTINGDATA);
         for (User actUser : testUsers) {
             for (int mid : actUser.ratings.keySet()) {
-                double pv = 0;
+                double pscore = 0;
                 int position;
                 if ((position = Arrays.binarySearch(uidArray, actUser.userId)) != -1) {
-                    pv = allUsers[position].predictedVote(core, allUsers, mid);
+                    pscore = allUsers[position].predictedVote(core, allUsers, mid);
                 }
-                System.out.println("User: " + actUser.userId + " Movie: " + mid + " => " + pv + "(" + actUser.ratings.get(mid) + ")");
+                int prating = (int) Math.round(pscore);
+                int rating = actUser.ratings.get(mid);
+                double error = pscore - rating;
+                MAE += Math.abs(error);
+                RMSE += error * error;
+                System.out.println("User:" + actUser.userId + " Movie:" + mid + " => " + prating + "(" + rating + ")");
             }
         }
-
+        MAE = MAE / testUsers.length;
+        RMSE = Math.sqrt(RMSE / testUsers.length);
+        System.out.println("Mean Absolute Error: " + MAE + "; Root Mean Squared Error: " + RMSE);
         System.out.println("Time consumption(s): " + (System.nanoTime() - start) * 1.0e-9);
         memoStat();
     }
@@ -112,7 +119,7 @@ class User {
     }
 
     //Get the rating score user voted for a movie return 0 if had never rate this movie
-    double ratingMeanError(int mid) {
+    private double ratingMeanError(int mid) {
         if (ratings.containsKey(mid)) return ratings.get(mid) - meanRating;
         return -meanRating;
     }
@@ -123,16 +130,16 @@ class User {
 
     //Method used to calculate the predicted rating for one movie
     double predictedVote(Correlation core, User[] users, int mid) {
-        //if (getRating(mid)!=0) return getRating(mid);
         double result = 0;
         double k = 0;
         for (User user : users) {
-            double weight = core.getWeight(userId, user.userId);
-            if (weight == 0) continue;
-            k += Math.abs(weight);
-            result += user.ratingMeanError(mid) * weight;
+            double w = core.getWeight(userId, user.userId);
+            if (w != 0) {
+                k += Math.abs(w);
+                result += user.ratingMeanError(mid) * w;
+            }
         }
-        return meanRating + (1 / k) * result;
+        return meanRating + result / k;
     }
 }
 
@@ -142,7 +149,7 @@ class User {
  */
 class Correlation {
     //weights[i][j] represents the correlation between user i and j
-    double[][] weights;
+    private double[][] weights;
 
     public Correlation(User[] users) {
         int size = CollaborativeFiltering.uidArray.length;
