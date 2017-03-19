@@ -25,6 +25,7 @@ public class CollaborativeFiltering {
         for (double[] d : core.weights) {
             for (double dd : d) System.out.print(dd + " ");
             System.out.println();
+            if(j++==200) break;
         }
 
         //Map<Integer, User> TestUsers = parseUsers(TESTINGDATA);
@@ -116,7 +117,7 @@ public class CollaborativeFiltering {
  */
 class User {
 
-    private double meanVote;
+    double meanRating;
 
     //key-Movie Id; value-vote(1-5), the average size is 112 based on given information
     Map<Integer, Integer> ratings;
@@ -132,16 +133,12 @@ class User {
 
     //Get the rating score user voted for a movie return 0 if had never rate this movie
     double ratingMeanError(int mid) {
-        if (ratings.containsKey(mid)) return meanError(mid);
-        return -meanVote;
-    }
-
-    double meanError(int mid) {
-        return ratings.get(mid) - meanVote;
+        if (ratings.containsKey(mid)) return ratings.get(mid) - meanRating;
+        return -meanRating;
     }
 
     void calMeanVote() {
-        meanVote = (double) ratings.values().stream().mapToInt(Integer::intValue).sum() / ratings.size();
+        meanRating = (double) ratings.values().stream().mapToInt(Integer::intValue).sum() / ratings.size();
     }
 
     //Method used to calculate the predicted rating for one movie
@@ -174,23 +171,22 @@ class Correlation {
         for (int i = 0; i < size; i++) {
             weights[i] = new double[i + 1];
             User u1 = users[i];
-            Set<Integer> common = new HashSet<>(u1.ratings.keySet());
+            Set<Integer> set1 = u1.ratings.keySet();
             for (int j = 0; j < i; j++) {
                 User u2 = users[j];
+                Set<Integer> common = new HashSet<>(set1);//fastest way to copy a set, performance crucial!!!-----------------------------
                 common.retainAll(u2.ratings.keySet());
-                if (common.isEmpty()) continue;
-                double s1 = 0, s2 = 0, s3 = 0;
-                for (int k : common) {
-                    double v1 = u1.meanError(k);
-                    double v2 = u2.meanError(k);
-                    s1 += v1 * v2;
-                    s2 += v1 * v1;
-                    s3 += v2 * v2;
+                if (!common.isEmpty()) {
+                    double s1 = 0, s2 = 0, s3 = 0;
+                    for (int k : common) {
+                        double v1 = u1.ratings.get(k) - u1.meanRating;
+                        double v2 = u2.ratings.get(k) - u2.meanRating;
+                        s1 += v1 * v2;
+                        s2 += v1 * v1;
+                        s3 += v2 * v2;
+                    }
+                    if ((s3 *= s2) != 0) weights[i][j] = s1 / Math.sqrt(s3);
                 }
-                if ((s3 *= s2) != 0) {
-                    weights[i][j] = s1 / Math.sqrt(s3);
-                }
-                System.out.println("w[" + i + "][" + j + "]=" + weights[i][j]+" k="+common.size());
             }
             weights[i][i] = 1;
         }
