@@ -14,7 +14,7 @@ public class CollaborativeFiltering {
     static int[] uidArray;
 
     public static void main(String[] args) {
-        long start = System.nanoTime();
+        long start = System.nanoTime(),testItem = 0;
         double MAE = 0, RMSE = 0;
         User[] allUsers = parseUsers(TRAININGDATA);
         Correlation core = new Correlation(allUsers);
@@ -22,21 +22,21 @@ public class CollaborativeFiltering {
         User[] testUsers = parseUsers(TESTINGDATA);
         for (User actUser : testUsers) {
             for (int mid : actUser.ratings.keySet()) {
-                double pscore = 0;
+                double pscore;
                 int position;
-                if ((position = Arrays.binarySearch(uidArray, actUser.userId)) != -1) {
-                    pscore = allUsers[position].predictedVote(core, allUsers, mid);
-                }
+                pscore = (position = Arrays.binarySearch(uidArray, actUser.userId)) != -1 ?
+                        allUsers[position].predictedVote(core, allUsers, mid) : new Random().nextInt(5) + 1;
                 int prating = (int) Math.round(pscore);
                 int rating = actUser.ratings.get(mid);
                 double error = pscore - rating;
                 MAE += Math.abs(error);
                 RMSE += error * error;
+                testItem++;
                 System.out.println("User:" + actUser.userId + " Movie:" + mid + " => " + prating + "(" + rating + ")");
             }
         }
-        MAE = MAE / testUsers.length;
-        RMSE = Math.sqrt(RMSE / testUsers.length);
+        MAE = MAE / testItem;
+        RMSE = Math.sqrt(RMSE / testItem);
         System.out.println("Mean Absolute Error: " + MAE + "; Root Mean Squared Error: " + RMSE);
         System.out.println("Time consumption(s): " + (System.nanoTime() - start) * 1.0e-9);
         memoStat();
