@@ -26,7 +26,7 @@ public class CollaborativeFiltering {
             for (int mid : tUser.ratings.keySet()) {
                 int position;
                 double pScore = (position = Arrays.binarySearch(uidArray, tUser.userId)) != -1 ?
-                        allUsers[position].predicteScore(core, allUsers, mid) : ESTIMATED_SCORE;
+                        allUsers[position].predictScore(core, allUsers, mid) : ESTIMATED_SCORE;
                 int realRating = tUser.ratings.get(mid);
                 int error = (int) Math.round(pScore) - realRating;
                 double error1 = pScore - realRating;
@@ -149,7 +149,7 @@ class User {
     }
 
     //Method used to calculate the predicted rating for one movie
-    double predicteScore(Correlation core, User[] users, int mid) {
+    double predictScore(Correlation core, User[] users, int mid) {
         double result = 0;
         double k = 0;
         for (User user : users) {
