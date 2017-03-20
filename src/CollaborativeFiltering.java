@@ -28,9 +28,9 @@ public class CollaborativeFiltering {
         Arrays.stream(testUsers).forEach(tUser -> {
             content.append("User:" + tUser.userId + "\n");
             Arrays.stream(tUser.movieIds).forEach(mid -> {
-                double pScore = ESTIMATED_SCORE;
-                int position = Arrays.binarySearch(uidArray, tUser.userId);
-                if (position != -1) pScore = allUsers[position].predictScore(core, allUsers, mid);
+                int position;
+                double pScore = (position = Arrays.binarySearch(uidArray, tUser.userId)) > -1 ?
+                        allUsers[position].predictScore(core, allUsers, mid) : ESTIMATED_SCORE;
                 int realRating = tUser.getRating(mid);
                 int error = (int) Math.round(pScore) - realRating;
                 double error1 = pScore - realRating;
@@ -157,9 +157,8 @@ class User {
      * return the rated score of movie specified by mid
      */
     int getRating(int mid) {
-        int index = Arrays.binarySearch(movieIds, mid);
-        if (index != -1) return ratings[index];
-        return CollaborativeFiltering.ESTIMATED_SCORE;
+        int index;
+        return (index = Arrays.binarySearch(movieIds, mid)) > -1 ? ratings[index] : CollaborativeFiltering.ESTIMATED_SCORE;
     }
 
     /**
