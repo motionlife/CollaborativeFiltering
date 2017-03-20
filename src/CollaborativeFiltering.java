@@ -28,9 +28,9 @@ public class CollaborativeFiltering {
         Arrays.stream(testUsers).forEach(tUser -> {
             content.append("User:" + tUser.userId + "\n");
             Arrays.stream(tUser.movieIds).forEach(mid -> {
-                int position;
-                double pScore = (position = Arrays.binarySearch(uidArray, tUser.userId)) != -1 ?
-                        allUsers[position].predictScore(core, allUsers, mid) : ESTIMATED_SCORE;
+                double pScore = ESTIMATED_SCORE;
+                int position = Arrays.binarySearch(uidArray, tUser.userId);
+                if (position != -1) pScore = allUsers[position].predictScore(core, allUsers, mid);
                 int realRating = tUser.getRating(mid);
                 int error = (int) Math.round(pScore) - realRating;
                 double error1 = pScore - realRating;
@@ -140,7 +140,7 @@ class User {
 
     /**
      * Call after all the users has been read from database
-     * */
+     */
     void unpack(Map<Integer, Integer> scores, boolean train) {
         if (train) meanRating = (double) scores.values().stream().mapToInt(Integer::intValue).sum() / scores.size();
         int size = scores.size();
@@ -155,15 +155,16 @@ class User {
 
     /**
      * return the rated score of movie specified by mid
-     * */
+     */
     int getRating(int mid) {
-        int index;
-        return (index = Arrays.binarySearch(movieIds, mid)) != -1 ? ratings[index] : CollaborativeFiltering.ESTIMATED_SCORE;
+        int index = Arrays.binarySearch(movieIds, mid);
+        if (index != -1) return ratings[index];
+        return CollaborativeFiltering.ESTIMATED_SCORE;
     }
 
     /**
      * Method used to calculate the predicted rating for one movie
-     * */
+     */
     double predictScore(Correlation core, User[] users, int mid) {
         final double[] result = {0};
         final double[] norm = {0};
@@ -207,7 +208,7 @@ class Correlation {
                         n++;
                     } else {
                         double v1 = u1.getRating(mid1) - u1.meanRating;
-                        double v2 = u2.getRating(mid2) - u2.meanRating;
+                        double v2 = u2.getRating(mid1) - u2.meanRating;
                         s1 += v1 * v2;
                         s2 += v1 * v1;
                         s3 += v2 * v2;
