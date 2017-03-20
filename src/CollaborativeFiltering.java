@@ -4,6 +4,7 @@
  */
 
 import java.io.*;
+import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -20,12 +21,17 @@ public class CollaborativeFiltering {
         int[] numberOfItems = new int[1];
         double[] ERROR = new double[2];
         StringBuilder content = new StringBuilder();
+        DecimalFormat df = new DecimalFormat("#.####");
+
         User[] allUsers = parseUsers(TRAININGDATA, true);
         content.append(log("Finished parsing training data."));
-        Correlation core = new Correlation(allUsers);
-        content.append(log("Finished Matrix Calculation."));
+
         User[] testUsers = parseUsers(TESTINGDATA, false);
         content.append(log("Finished parsing testing data."));
+
+        Correlation core = new Correlation(allUsers);
+        content.append(log("Finished Matrix Calculation."));
+
         //Todo::Use lambda expression to exploit parallelism
         Arrays.stream(testUsers).forEach(tUser -> {
             content.append("User:" + tUser.userId + "\n");
@@ -38,20 +44,20 @@ public class CollaborativeFiltering {
                 ERROR[0] += Math.abs(error);
                 ERROR[1] += error * error;
                 numberOfItems[0]++;
-                content.append("Movie:" + mid + " => " + pScore + "(" + realRating + ")\n");
+                content.append("\tMovie:" + mid + " => " + df.format(pScore) + "(" + realRating + ")\n");
             });
         });
         ERROR[0] = ERROR[0] / numberOfItems[0];
         ERROR[1] = Math.sqrt(ERROR[1] / numberOfItems[0]);
         content.append(log("\n\nMean Absolute Error: " + ERROR[0] + "\nRoot Mean Squared Error: " + ERROR[1]));
+        content.append(log(memoStat()));
         saveRunningResult(content.toString(), RESULTTEXT);
-        memoStat();
     }
 
     /**
      * Read the data set file convert them to user list
      */
-    private static User[] parseUsers(String name, boolean isTrain) {
+    private static User[] parseUsers(String name, boolean isBase) {
         Map<Integer, User> userMap = new HashMap<>(30000);
         try (BufferedReader br = new BufferedReader(new FileReader(name))) {
             String line;
@@ -72,7 +78,7 @@ public class CollaborativeFiltering {
         int i = 0;
         for (int uid : userMap.keySet()) {
             User user = userMap.get(uid);
-            if (isTrain) {
+            if (isBase) {
                 User.IdMap.put(uid, i);
                 user.doJobs();
             }
@@ -105,21 +111,16 @@ public class CollaborativeFiltering {
     }
 
     //Heap utilization statistics
-    private static void memoStat() {
+    private static String memoStat() {
         double mb = 1024 * 1024;
         //Getting the runtime reference from system
         Runtime runtime = Runtime.getRuntime();
-        System.out.println("##### Heap utilization statistics [MB] #####");
-        //Print used memory
-        System.out.println("Used Memory:"
-                + (runtime.totalMemory() - runtime.freeMemory()) / mb);
-        //Print free memory
-        System.out.println("Free Memory:"
-                + runtime.freeMemory() / mb);
-        //Print total available memory
-        System.out.println("Total Memory:" + runtime.totalMemory() / mb);
-        //Print Maximum available memory
-        System.out.println("Max Memory:" + runtime.maxMemory() / mb);
+        String info = "\n##### Heap utilization statistics [MB] #####"
+                + "\nUsed Memory:" + (runtime.totalMemory() - runtime.freeMemory()) / mb
+                + "\nFree Memory:" + runtime.freeMemory() / mb
+                + "\nTotal Memory:" + runtime.totalMemory() / mb
+                + "\nMax Memory:" + runtime.maxMemory() / mb;
+        return info;
     }
 }
 
