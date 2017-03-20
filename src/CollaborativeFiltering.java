@@ -4,7 +4,10 @@
  */
 
 import java.io.*;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 public class CollaborativeFiltering {
     private static final String TRAININGDATA = "data/TrainingRatings.txt";
@@ -127,6 +130,7 @@ public class CollaborativeFiltering {
  */
 class User {
     //key-Movie Id; value-vote(1-5), the average size is 112 based on given information
+    //Todo: In oder to achieve the fastest performance, its key set should has a fast contains method.
     Map<Integer, Integer> ratings;
     int userId;
     double meanRating;
@@ -152,6 +156,7 @@ class User {
     double predictScore(Correlation core, User[] users, int mid) {
         double result = 0;
         double k = 0;
+        //Todo:use lambda expression to exploit parallelism
         for (User user : users) {
             double w = core.getWeight(userId, user.userId);
             if (w != 0) {
@@ -177,20 +182,18 @@ class Correlation {
         for (int i = 0; i < size; i++) {
             weights[i] = new double[i + 1];
             User u1 = users[i];
-            Set<Integer> set1 = u1.ratings.keySet();
+            Set<Integer> set1 = u1.ratings.keySet();//is this a hash set? better be
             for (int j = 0; j < i; j++) {
+                final double[] s = {0, 0, 0};
                 User u2 = users[j];
-                Set<Integer> commons = new HashSet<>(set1);//must find an efficient way to find common elements, performance crucial!!!-----------------------------
-                commons.retainAll(u2.ratings.keySet());//way too slow!!!!!!!!
-                double s1 = 0, s2 = 0, s3 = 0;
-                for (int k : commons) {
+                u2.ratings.keySet().stream().filter(set1::contains).forEach(k -> {
                     double v1 = u1.ratings.get(k) - u1.meanRating;
                     double v2 = u2.ratings.get(k) - u2.meanRating;
-                    s1 += v1 * v2;
-                    s2 += v1 * v1;
-                    s3 += v2 * v2;
-                }
-                if ((s3 *= s2) != 0) weights[i][j] = s1 / Math.sqrt(s3);
+                    s[0] += v1 * v2;
+                    s[1] += v1 * v1;
+                    s[2] += v2 * v2;
+                });
+                if ((s[2] *= s[1]) != 0) weights[i][j] = s[0] / Math.sqrt(s[2]);
             }
             weights[i][i] = 1;
         }
