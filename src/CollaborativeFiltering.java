@@ -18,7 +18,7 @@ public class CollaborativeFiltering {
 
     public static void main(String[] args) {
         long start = System.nanoTime();
-        int[] numberOfItems = new int[0];
+        int[] numberOfItems = new int[1];
         double[] ERROR = new double[4];
         StringBuilder content = new StringBuilder();
         User[] allUsers = parseUsers(TRAININGDATA);
