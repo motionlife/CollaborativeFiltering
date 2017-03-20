@@ -10,38 +10,40 @@ public class CollaborativeFiltering {
     private static final String TRAININGDATA = "data/TrainingRatings.txt";
     private static final String TESTINGDATA = "data/TestingRatings.txt";
     private static final String RESULTTEXT = "result.txt";
+    private static final int ESTIMATED_SCORE = 3;
     static int[] uidArray;
 
     public static void main(String[] args) {
-        long start = System.nanoTime(),testItem = 0;
-        double MAE = 0, RMSE = 0;
+        long start = System.nanoTime(), numberOfItems = 0;
+        StringBuilder content = new StringBuilder();
+        double MAE = 0, RMSE = 0, MAE1 = 0, RMSE1 = 0;
         User[] allUsers = parseUsers(TRAININGDATA);
         Correlation core = new Correlation(allUsers);
-        System.out.println("Matrix Calculation Finished.\nTime consumption(s): " + (System.nanoTime() - start) * 1.0e-9);
+        content.append("Matrix Calculation Finished.\nTime consumption(s): " + (System.nanoTime() - start) * 1.0e-9 + "\n");
         User[] testUsers = parseUsers(TESTINGDATA);
-        StringBuilder content = new StringBuilder();
-        for (User actUser : testUsers) {
-            content.append("User:").append(actUser.userId);
-            for (int mid : actUser.ratings.keySet()) {
-                double pscore;
+        for (User tUser : testUsers) {
+            content.append("User:" + tUser.userId + "\n");
+            for (int mid : tUser.ratings.keySet()) {
                 int position;
-                pscore = (position = Arrays.binarySearch(uidArray, actUser.userId)) != -1 ?
-                        allUsers[position].predictedVote(core, allUsers, mid) : new Random().nextInt(5) + 1;
-                int prating = (int) Math.round(pscore);
-                int rating = actUser.ratings.get(mid);
-                double error = pscore - rating;
+                double pScore = (position = Arrays.binarySearch(uidArray, tUser.userId)) != -1 ?
+                        allUsers[position].predicteScore(core, allUsers, mid) : ESTIMATED_SCORE;
+                int realRating = tUser.ratings.get(mid);
+                int error = (int) Math.round(pScore) - realRating;
+                double error1 = pScore - realRating;
                 MAE += Math.abs(error);
+                MAE1 += Math.abs(error1);
                 RMSE += error * error;
-                testItem++;
-                //System.out.println("User:" + actUser.userId + " Movie:" + mid + " => " + prating + "(" + rating + ")");
-                content.append("\nMovie:").append(mid).append(" => ").append(prating).append("(").append(rating).append(")\n");
+                RMSE1 += error1 * error1;
+                numberOfItems++;
+                content.append("Movie:" + mid + " => " + pScore + "(" + realRating + ")\n");
             }
         }
-        MAE = MAE / testItem;
-        RMSE = Math.sqrt(RMSE / testItem);
-        System.out.println("Mean Absolute Error: " + MAE + "; Root Mean Squared Error: " + RMSE);
-        content.append("Mean Absolute Error: ").append(MAE).append("; Root Mean Squared Error: ").append(RMSE).append("\n");
-        System.out.println("Time consumption(s): " + (System.nanoTime() - start) * 1.0e-9);
+        MAE = MAE / numberOfItems;
+        RMSE = Math.sqrt(RMSE / numberOfItems);
+        MAE1 = MAE1 / numberOfItems;
+        RMSE1 = Math.sqrt(RMSE1 / numberOfItems);
+        content.append("Mean Absolute Error: " + MAE + " " + MAE1 + "; Root Mean Squared Error: " + RMSE + " " + RMSE1 + "\n");
+        content.append("Time consumption(s): " + (System.nanoTime() - start) * 1.0e-9);
         saveRunningResult(content.toString(), RESULTTEXT);
         memoStat();
     }
@@ -86,12 +88,12 @@ public class CollaborativeFiltering {
 
     /**
      * Save the running result to file
-     * */
-    private static boolean saveRunningResult(String content, String filename){
+     */
+    private static boolean saveRunningResult(String content, String filename) {
         boolean success = false;
         File file = new File(filename);
         try {
-            if(!file.exists()) success = file.createNewFile();
+            if (!file.exists()) success = file.createNewFile();
             PrintWriter pr = new PrintWriter(file);
             pr.write(content);
             pr.close();
@@ -100,6 +102,7 @@ public class CollaborativeFiltering {
         }
         return success;
     }
+
     //Heap utilization statistics
     private static void memoStat() {
         double mb = 1024 * 1024;
@@ -125,10 +128,8 @@ public class CollaborativeFiltering {
 class User {
 
     double meanRating;
-
     //key-Movie Id; value-vote(1-5), the average size is 112 based on given information
     Map<Integer, Integer> ratings;
-
     int userId;
 
     //Construct a user by its first rating record
@@ -149,7 +150,7 @@ class User {
     }
 
     //Method used to calculate the predicted rating for one movie
-    double predictedVote(Correlation core, User[] users, int mid) {
+    double predicteScore(Correlation core, User[] users, int mid) {
         double result = 0;
         double k = 0;
         for (User user : users) {
@@ -200,10 +201,10 @@ class Correlation {
     double getWeight(int id1, int id2) {
         int i = Arrays.binarySearch(CollaborativeFiltering.uidArray, id1);//-!performance critical
         int j = Arrays.binarySearch(CollaborativeFiltering.uidArray, id2);//-!performance critical
-        if (i != -1 && j != -1) {
-            if (i > j) return weights[i][j];
-            return weights[j][i];
-        }
-        return 0;
+        //if (i != -1 && j != -1) {//since it's guaranteed i j can be found
+        if (i > j) return weights[i][j];
+        return weights[j][i];
+        //}
+        //return 0;
     }
 }
