@@ -3,5 +3,5 @@
 `javac *.java`
 
 ### Run
-Require at least 3GB memory to run given data set
-`java -Xmx3g CollaborativeFiltering`
+Require at least 5GB memory to run given data set
+`java -Xmx5g CollaborativeFiltering`
