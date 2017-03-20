@@ -9,7 +9,7 @@ import java.util.*;
 public class CollaborativeFiltering {
     private static final String TRAININGDATA = "data/TrainingRatings.txt";
     private static final String TESTINGDATA = "data/TestingRatings.txt";
-    private static final String RESULT = "result.txt";
+    private static final String RESULTTEXT = "result.txt";
     static int[] uidArray;
 
     public static void main(String[] args) {
@@ -19,9 +19,9 @@ public class CollaborativeFiltering {
         Correlation core = new Correlation(allUsers);
         System.out.println("Matrix Calculation Finished.\nTime consumption(s): " + (System.nanoTime() - start) * 1.0e-9);
         User[] testUsers = parseUsers(TESTINGDATA);
-        StringBuilder result = new StringBuilder();
+        StringBuilder content = new StringBuilder();
         for (User actUser : testUsers) {
-            result.append("User:").append(actUser.userId);
+            content.append("User:").append(actUser.userId);
             for (int mid : actUser.ratings.keySet()) {
                 double pscore;
                 int position;
@@ -34,15 +34,15 @@ public class CollaborativeFiltering {
                 RMSE += error * error;
                 testItem++;
                 //System.out.println("User:" + actUser.userId + " Movie:" + mid + " => " + prating + "(" + rating + ")");
-                result.append("\nMovie:").append(mid).append(" => ").append(prating).append("(").append(rating).append(")\n");
+                content.append("\nMovie:").append(mid).append(" => ").append(prating).append("(").append(rating).append(")\n");
             }
         }
         MAE = MAE / testItem;
         RMSE = Math.sqrt(RMSE / testItem);
         System.out.println("Mean Absolute Error: " + MAE + "; Root Mean Squared Error: " + RMSE);
-        result.append("Mean Absolute Error: ").append(MAE).append("; Root Mean Squared Error: ").append(RMSE).append("\n");
+        content.append("Mean Absolute Error: ").append(MAE).append("; Root Mean Squared Error: ").append(RMSE).append("\n");
         System.out.println("Time consumption(s): " + (System.nanoTime() - start) * 1.0e-9);
-        saveRunningResult(result.toString(),RESULT);
+        saveRunningResult(content.toString(), RESULTTEXT);
         memoStat();
     }
 
@@ -51,8 +51,8 @@ public class CollaborativeFiltering {
      */
     private static User[] parseUsers(String name) {
         Map<Integer, User> userMap = new HashMap<>(30000);
-        String line;
         try (BufferedReader br = new BufferedReader(new FileReader(name))) {
+            String line;
             while ((line = br.readLine()) != null) {
                 String[] s = line.split(",");
                 int[] v = {Integer.parseInt(s[0]), Integer.parseInt(s[1]), (int) Float.parseFloat(s[2])};
@@ -90,8 +90,8 @@ public class CollaborativeFiltering {
     private static boolean saveRunningResult(String content, String filename){
         boolean success = false;
         File file = new File(filename);
-        if(!file.exists()) try {
-            success = file.createNewFile();
+        try {
+            if(!file.exists()) success = file.createNewFile();
             PrintWriter pr = new PrintWriter(file);
             pr.write(content);
             pr.close();
