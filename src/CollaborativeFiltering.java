@@ -126,11 +126,10 @@ public class CollaborativeFiltering {
  * User class contains its ratings
  */
 class User {
-
-    double meanRating;
     //key-Movie Id; value-vote(1-5), the average size is 112 based on given information
     Map<Integer, Integer> ratings;
     int userId;
+    double meanRating;
 
     //Construct a user by its first rating record
     public User(int mid, int uid, int vote) {
@@ -181,7 +180,7 @@ class Correlation {
             Set<Integer> set1 = u1.ratings.keySet();
             for (int j = 0; j < i; j++) {
                 User u2 = users[j];
-                Set<Integer> commons = new HashSet<>(set1);//fastest way to copy a set, performance crucial!!!-----------------------------
+                Set<Integer> commons = new HashSet<>(set1);//must find an efficient way to find common elements, performance crucial!!!-----------------------------
                 commons.retainAll(u2.ratings.keySet());//way too slow!!!!!!!!
                 double s1 = 0, s2 = 0, s3 = 0;
                 for (int k : commons) {
