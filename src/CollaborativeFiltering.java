@@ -147,10 +147,11 @@ class User {
      */
     void doJobs(boolean isTrain) {
         if (isTrain) {
-            meanScore = (double) ratings.values().stream().mapToInt(Integer::intValue).sum() / ratings.size();
-            movieIds = new int[ratings.size()];
-            int i = 0;
-            for (int mid : ratings.keySet()) movieIds[i++] = mid;
+            int size = ratings.size();
+            meanScore = (double) ratings.values().stream().mapToInt(Integer::intValue).sum() / size;
+            movieIds = new int[size];
+            size = 0;
+            for (int mid : ratings.keySet()) movieIds[size++] = mid;
             Arrays.sort(movieIds);//crucial!!!
         }
     }
@@ -219,6 +220,7 @@ class Correlation {
                 if ((s3 *= s2) != 0) weights[i][j] = s1 / Math.sqrt(s3);
             }
             weights[i][i] = 1;
+            System.out.println(i);//--------------speed check out-------------------
         }
     }
 
