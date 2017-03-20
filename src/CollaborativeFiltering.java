@@ -17,35 +17,38 @@ public class CollaborativeFiltering {
     static int[] uidArray;
 
     public static void main(String[] args) {
-        long start = System.nanoTime(), numberOfItems = 0;
+        long start = System.nanoTime();
+        int[] numberOfItems = new int[0];
+        double[] ERROR = new double[4];
         StringBuilder content = new StringBuilder();
-        double MAE = 0, RMSE = 0, MAE1 = 0, RMSE1 = 0;
         User[] allUsers = parseUsers(TRAININGDATA);
         Correlation core = new Correlation(allUsers);
         content.append("Matrix Calculation Finished.\nTime consumption(s): " + (System.nanoTime() - start) * 1.0e-9 + "\n");
         User[] testUsers = parseUsers(TESTINGDATA);
-        for (User tUser : testUsers) {
+        //Todo::Use lambda expression to exploit parallelism
+        Arrays.stream(testUsers).forEach(tUser -> {
             content.append("User:" + tUser.userId + "\n");
-            for (int mid : tUser.ratings.keySet()) {
+            tUser.ratings.keySet().forEach(mid -> {
                 int position;
                 double pScore = (position = Arrays.binarySearch(uidArray, tUser.userId)) != -1 ?
                         allUsers[position].predictScore(core, allUsers, mid) : ESTIMATED_SCORE;
                 int realRating = tUser.ratings.get(mid);
                 int error = (int) Math.round(pScore) - realRating;
                 double error1 = pScore - realRating;
-                MAE += Math.abs(error);
-                MAE1 += Math.abs(error1);
-                RMSE += error * error;
-                RMSE1 += error1 * error1;
-                numberOfItems++;
+                ERROR[0] += Math.abs(error);
+                ERROR[1] += Math.abs(error1);
+                ERROR[2] += error * error;
+                ERROR[3] += error1 * error1;
+                numberOfItems[0]++;
                 content.append("Movie:" + mid + " => " + pScore + "(" + realRating + ")\n");
-            }
-        }
-        MAE = MAE / numberOfItems;
-        RMSE = Math.sqrt(RMSE / numberOfItems);
-        MAE1 = MAE1 / numberOfItems;
-        RMSE1 = Math.sqrt(RMSE1 / numberOfItems);
-        content.append("Mean Absolute Error: " + MAE + " " + MAE1 + "; Root Mean Squared Error: " + RMSE + " " + RMSE1 + "\n");
+            });
+        });
+        ERROR[0] = ERROR[0] / numberOfItems[0];
+        ERROR[1] = ERROR[1] / numberOfItems[0];
+        ERROR[2] = Math.sqrt(ERROR[2] / numberOfItems[0]);
+        ERROR[3] = Math.sqrt(ERROR[3] / numberOfItems[0]);
+        content.append("Mean Absolute Error: " + ERROR[0] + ", " + ERROR[1]
+                + "\nRoot Mean Squared Error: " + ERROR[2] + ", " + ERROR[3] + "\n");
         content.append("Time consumption(s): " + (System.nanoTime() - start) * 1.0e-9);
         saveRunningResult(content.toString(), RESULTTEXT);
         memoStat();
@@ -131,14 +134,14 @@ public class CollaborativeFiltering {
 class User {
     //key-Movie Id; value-vote(1-5), the average size is 112 based on given information
     //Todo: In oder to achieve the fastest performance, its key set should has a fast contains method.
-    Map<Integer, Integer> ratings;
+    Map<Integer, Integer> ratings;//Would 2 arrays be better?
     int userId;
     double meanRating;
 
     //Construct a user by its first rating record
     public User(int mid, int uid, int vote) {
         userId = uid;
-        ratings = new HashMap<>();
+        ratings = new HashMap<>();//Todo: tree or hash map
         ratings.put(mid, vote);
     }
 
@@ -154,17 +157,17 @@ class User {
 
     //Method used to calculate the predicted rating for one movie
     double predictScore(Correlation core, User[] users, int mid) {
-        double result = 0;
-        double k = 0;
-        //Todo:use lambda expression to exploit parallelism
-        for (User user : users) {
+        final double[] result = {0};
+        final double[] norm = {0};
+        //Use lambda expression to exploit parallelism
+        Arrays.stream(users).forEach(user -> {
             double w = core.getWeight(userId, user.userId);
             if (w != 0) {
-                k += Math.abs(w);
-                result += user.ratingMeanError(mid) * w;
+                norm[0] += Math.abs(w);
+                result[0] += user.ratingMeanError(mid) * w;
             }
-        }
-        return meanRating + result / k;
+        });
+        return meanRating + result[0] / norm[0];
     }
 }
 
@@ -175,6 +178,7 @@ class User {
 class Correlation {
     //weights[i][j] represents the correlation between user i and j
     private double[][] weights;
+    private static final double[] s = new double[3];
 
     public Correlation(User[] users) {
         int size = CollaborativeFiltering.uidArray.length;
@@ -182,9 +186,11 @@ class Correlation {
         for (int i = 0; i < size; i++) {
             weights[i] = new double[i + 1];
             User u1 = users[i];
-            Set<Integer> set1 = u1.ratings.keySet();//is this a hash set? better be
+            Set<Integer> set1 = u1.ratings.keySet();//Todo: better be a hash set
             for (int j = 0; j < i; j++) {
-                final double[] s = {0, 0, 0};
+                s[0] = 0;
+                s[1] = 0;
+                s[2] = 0;
                 User u2 = users[j];
                 u2.ratings.keySet().stream().filter(set1::contains).forEach(k -> {
                     double v1 = u1.ratings.get(k) - u1.meanRating;
