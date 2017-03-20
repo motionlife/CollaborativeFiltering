@@ -19,7 +19,7 @@ public class CollaborativeFiltering {
     public static void main(String[] args) {
         STARTTIME = System.nanoTime();
         int[] numberOfItems = new int[1];
-        double[] ERROR = new double[4];
+        double[] ERROR = new double[2];
         StringBuilder content = new StringBuilder();
         User[] allUsers = parseUsers(TRAININGDATA, true);
         content.append(log("Finished parsing training data."));
@@ -35,22 +35,16 @@ public class CollaborativeFiltering {
                 double pScore = (position = Arrays.binarySearch(uidArray, tUser.userId)) > -1 ?
                         allUsers[position].predictScore(core, allUsers, mid) : ESTIMATED_SCORE;
                 int realRating = tUser.getRating(mid);
-                int error = (int) Math.round(pScore) - realRating;
-                double error1 = pScore - realRating;
+                double error = pScore - realRating;
                 ERROR[0] += Math.abs(error);
-                ERROR[1] += Math.abs(error1);
-                ERROR[2] += error * error;
-                ERROR[3] += error1 * error1;
+                ERROR[1] += error * error;
                 numberOfItems[0]++;
                 content.append("Movie:" + mid + " => " + pScore + "(" + realRating + ")\n");
             });
         });
         ERROR[0] = ERROR[0] / numberOfItems[0];
-        ERROR[1] = ERROR[1] / numberOfItems[0];
-        ERROR[2] = Math.sqrt(ERROR[2] / numberOfItems[0]);
-        ERROR[3] = Math.sqrt(ERROR[3] / numberOfItems[0]);
-        content.append(log("\nMean Absolute Error: " + ERROR[0] + ", " + ERROR[1]
-                + "\nRoot Mean Squared Error: " + ERROR[2] + ", " + ERROR[3]));
+        ERROR[1] = Math.sqrt(ERROR[1] / numberOfItems[0]);
+        content.append(log("\n\nMean Absolute Error: " + ERROR[0] + "\nRoot Mean Squared Error: " + ERROR[1]));
         saveRunningResult(content.toString(), RESULTTEXT);
         memoStat();
     }
