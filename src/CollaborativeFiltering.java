@@ -5,8 +5,8 @@
 
 import java.io.*;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.TreeMap;
 
 public class CollaborativeFiltering {
     private static final String TRAININGDATA = "data/TrainingRatings.txt";
@@ -14,7 +14,6 @@ public class CollaborativeFiltering {
     private static final String RESULTTEXT = "result.txt";
     private static final int ESTIMATED_SCORE = 3;
     private static long STARTTIME;
-    static int[] uidArray;
 
     public static void main(String[] args) {
         STARTTIME = System.nanoTime();
@@ -30,11 +29,11 @@ public class CollaborativeFiltering {
         //Todo::Use lambda expression to exploit parallelism
         Arrays.stream(testUsers).forEach(tUser -> {
             content.append("User:" + tUser.userId + "\n");
-            Arrays.stream(tUser.movieIds).forEach(mid -> {
-                int position;
-                double pScore = (position = Arrays.binarySearch(uidArray, tUser.userId)) > -1 ?
+            tUser.ratings.keySet().forEach(mid -> {
+                Integer position;
+                double pScore = (position = User.IdMap.get(tUser.userId)) != null ?
                         allUsers[position].predictScore(core, allUsers, mid) : ESTIMATED_SCORE;
-                int realRating = tUser.getRating(mid);
+                int realRating = tUser.ratings.get(mid);
                 double error = pScore - realRating;
                 ERROR[0] += Math.abs(error);
                 ERROR[1] += error * error;
@@ -52,32 +51,29 @@ public class CollaborativeFiltering {
     /**
      * Read the data set file convert them to user list
      */
-    private static User[] parseUsers(String name, boolean train) {
-        Map<Integer, Map<Integer, Integer>> userRatings = new TreeMap<>();
+    private static User[] parseUsers(String name, boolean isTrain) {
+        Map<Integer, User> userMap = new HashMap<>(30000);
         try (BufferedReader br = new BufferedReader(new FileReader(name))) {
             String line;
             while ((line = br.readLine()) != null) {
                 String[] s = line.split(",");
                 int[] v = {Integer.parseInt(s[0]), Integer.parseInt(s[1]), (int) Float.parseFloat(s[2])};
-                if (userRatings.containsKey(v[1])) {
-                    userRatings.get(v[1]).put(v[0], v[2]);
+                if (userMap.containsKey(v[1])) {
+                    userMap.get(v[1]).ratings.put(v[0], v[2]);
                 } else {
-                    Map<Integer, Integer> rating = new TreeMap<>();
-                    rating.put(v[0], v[2]);//if same user rated two movie the previous rating will be overwritten.
-                    userRatings.put(v[1], rating);
+                    userMap.put(v[1], new User(v[0], v[1], v[2]));
                 }
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-        User[] users = new User[userRatings.size()];
-        if (train) uidArray = new int[users.length];
+        User[] users = new User[userMap.size()];
         int i = 0;
-        for (int uid : userRatings.keySet()) {
-            if (train) uidArray[i] = uid;
-            User user = new User(uid);
-            user.unpack(userRatings.get(uid), train);
+        for (int uid : userMap.keySet()) {
+            if (isTrain) User.IdMap.put(uid, i);
+            User user = userMap.get(uid);
+            user.doJobs(isTrain);
             users[i++] = user;
         }
         return users;
@@ -130,40 +126,40 @@ public class CollaborativeFiltering {
  */
 class User {
 
+    Map<Integer, Integer> ratings;
     int[] movieIds;
-    int[] ratings;
-    double meanRating;
+    double meanScore;
     int userId;
+    //cache the rating of latest found movie
+    private Integer cache;
+    //map between the index of user in array and user id
+    static Map<Integer, Integer> IdMap = new HashMap<>(30000);
 
     //Construct a user by its first rating record
-    public User(int uid) {
+    public User(int mid, int uid, int rating) {
         userId = uid;
+        ratings = new HashMap<>();
+        ratings.put(mid, rating);
     }
 
     /**
      * Call after all the users has been read from database
      */
-    void unpack(Map<Integer, Integer> scores, boolean train) {
-        if (train) meanRating = (double) scores.values().stream().mapToInt(Integer::intValue).sum() / scores.size();
-        int size = scores.size();
-        movieIds = new int[size];
-        ratings = new int[size];
-        int i = 0;
-        for (Map.Entry<Integer, Integer> rating : scores.entrySet()) {
-            movieIds[i] = rating.getKey();
-            ratings[i++] = rating.getValue();
+    void doJobs(boolean isTrain) {
+        if (isTrain) {
+            meanScore = (double) ratings.values().stream().mapToInt(Integer::intValue).sum() / ratings.size();
+            movieIds = new int[ratings.size()];
+            int i = 0;
+            for (int mid : ratings.keySet()) movieIds[i++] = mid;
+            Arrays.sort(movieIds);//crucial!!!
         }
-    }
-
-    int getRating(int mid) {
-        return ratings[Arrays.binarySearch(movieIds, mid)];
     }
 
     /**
      * return true if the user has rated movie specified by mid
      */
     boolean hasRated(int mid) {
-        return Arrays.binarySearch(movieIds, mid) > -1;
+        return (cache = ratings.get(mid)) != null;
     }
 
     /**
@@ -177,10 +173,10 @@ class User {
             double w = core.getWeight(userId, user.userId);
             if (w != 0) {
                 norm[0] += Math.abs(w);
-                result[0] += (user.getRating(mid) - user.meanRating) * w;
+                result[0] += (user.cache - user.meanScore) * w;
             }
         });
-        return meanRating + (norm[0] > 0 ? result[0] / norm[0] : 0);
+        return meanScore + (norm[0] > 0 ? result[0] / norm[0] : 0);
     }
 }
 
@@ -193,7 +189,7 @@ class Correlation {
     private double[][] weights;
 
     public Correlation(User[] users) {
-        int size = CollaborativeFiltering.uidArray.length;
+        int size = User.IdMap.size();
         weights = new double[size][];
         for (int i = 0; i < size; i++) {
             weights[i] = new double[i + 1];
@@ -211,8 +207,8 @@ class Correlation {
                     } else if (mid1 > mid2) {
                         n++;
                     } else {
-                        double v1 = u1.getRating(mid1) - u1.meanRating;
-                        double v2 = u2.getRating(mid1) - u2.meanRating;
+                        double v1 = u1.ratings.get(mid1) - u1.meanScore;//-!performance critical
+                        double v2 = u2.ratings.get(mid1) - u2.meanScore;
                         s1 += v1 * v2;
                         s2 += v1 * v1;
                         s3 += v2 * v2;
@@ -227,8 +223,8 @@ class Correlation {
     }
 
     double getWeight(int id1, int id2) {
-        int i = Arrays.binarySearch(CollaborativeFiltering.uidArray, id1);//-!performance critical
-        int j = Arrays.binarySearch(CollaborativeFiltering.uidArray, id2);//-!performance critical
+        int i = User.IdMap.get(id1);//-!performance critical
+        int j = User.IdMap.get(id2);//-!performance critical
         if (i > j) return weights[i][j];
         return weights[j][i];
     }
