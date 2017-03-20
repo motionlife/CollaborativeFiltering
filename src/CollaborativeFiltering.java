@@ -107,7 +107,7 @@ public class CollaborativeFiltering {
     }
 
     private static String log(String debug) {
-        String ouput = "Time:" + (System.nanoTime() - STARTTIME) * 1.0e-9 + " " + debug + "\n";
+        String ouput = "Time(s):" + (System.nanoTime() - STARTTIME) * 1.0e-9 + " " + debug + "\n";
         System.out.print(ouput);
         return ouput;
     }
