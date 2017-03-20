@@ -71,9 +71,11 @@ public class CollaborativeFiltering {
         User[] users = new User[userMap.size()];
         int i = 0;
         for (int uid : userMap.keySet()) {
-            if (isTrain) User.IdMap.put(uid, i);
             User user = userMap.get(uid);
-            user.doJobs(isTrain);
+            if (isTrain) {
+                User.IdMap.put(uid, i);
+                user.doJobs();
+            }
             users[i++] = user;
         }
         return users;
@@ -145,15 +147,13 @@ class User {
     /**
      * Call after all the users has been read from database
      */
-    void doJobs(boolean isTrain) {
-        if (isTrain) {
-            int size = ratings.size();
-            meanScore = (double) ratings.values().stream().mapToInt(Integer::intValue).sum() / size;
-            movieIds = new int[size];
-            size = 0;
-            for (int mid : ratings.keySet()) movieIds[size++] = mid;
-            Arrays.sort(movieIds);//crucial!!!
-        }
+    void doJobs() {
+        int size = ratings.size();
+        meanScore = (double) ratings.values().stream().mapToInt(Integer::intValue).sum() / size;
+        movieIds = new int[size];
+        size = 0;
+        for (int mid : ratings.keySet()) movieIds[size++] = mid;
+        Arrays.sort(movieIds);//crucial!!!
     }
 
     /**
