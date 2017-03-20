@@ -186,7 +186,7 @@ class User {
                 result[0] += (user.getRating(mid) - user.meanRating) * w;
             }
         });
-        return meanRating + result[0] / norm[0];
+        return meanRating + (norm[0] > 0 ? result[0] / norm[0] : 0);
     }
 }
 
