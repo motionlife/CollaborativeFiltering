@@ -13,7 +13,7 @@ public class CollaborativeFiltering {
     private static final String TRAININGDATA = "data/TrainingRatings.txt";
     private static final String TESTINGDATA = "data/TestingRatings.txt";
     private static final String RESULTTEXT = "result.txt";
-    private static final int ESTIMATED_SCORE = 3;
+    static final int ESTIMATED_SCORE = 3;
     static int[] uidArray;
 
     public static void main(String[] args) {
@@ -148,7 +148,7 @@ class User {
     //Get the rating score user voted for a movie return 0 if had never rate this movie
     private double ratingMeanError(int mid) {
         if (ratings.containsKey(mid)) return ratings.get(mid) - meanRating;
-        return -meanRating;
+        return CollaborativeFiltering.ESTIMATED_SCORE - meanRating;
     }
 
     void calMeanVote() {
@@ -205,7 +205,6 @@ class Correlation {
         }
     }
 
-    //If user id has never appeared in training database just return 0;
     double getWeight(int id1, int id2) {
         int i = Arrays.binarySearch(CollaborativeFiltering.uidArray, id1);//-!performance critical
         int j = Arrays.binarySearch(CollaborativeFiltering.uidArray, id2);//-!performance critical
