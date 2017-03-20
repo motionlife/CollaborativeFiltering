@@ -12,18 +12,21 @@ public class CollaborativeFiltering {
     private static final String TRAININGDATA = "data/TrainingRatings.txt";
     private static final String TESTINGDATA = "data/TestingRatings.txt";
     private static final String RESULTTEXT = "result.txt";
-    static final int ESTIMATED_SCORE = 3;
+    private static final int ESTIMATED_SCORE = 3;
+    private static long STARTTIME;
     static int[] uidArray;
 
     public static void main(String[] args) {
-        long start = System.nanoTime();
+        STARTTIME = System.nanoTime();
         int[] numberOfItems = new int[1];
         double[] ERROR = new double[4];
         StringBuilder content = new StringBuilder();
         User[] allUsers = parseUsers(TRAININGDATA, true);
+        content.append(log("Finished parsing training data."));
         Correlation core = new Correlation(allUsers);
-        content.append("Matrix Calculation Finished.\nTime consumption(s): " + (System.nanoTime() - start) * 1.0e-9 + "\n");
+        content.append(log("Finished Matrix Calculation."));
         User[] testUsers = parseUsers(TESTINGDATA, false);
+        content.append(log("Finished parsing testing data."));
         //Todo::Use lambda expression to exploit parallelism
         Arrays.stream(testUsers).forEach(tUser -> {
             content.append("User:" + tUser.userId + "\n");
@@ -46,9 +49,8 @@ public class CollaborativeFiltering {
         ERROR[1] = ERROR[1] / numberOfItems[0];
         ERROR[2] = Math.sqrt(ERROR[2] / numberOfItems[0]);
         ERROR[3] = Math.sqrt(ERROR[3] / numberOfItems[0]);
-        content.append("Mean Absolute Error: " + ERROR[0] + ", " + ERROR[1]
-                + "\nRoot Mean Squared Error: " + ERROR[2] + ", " + ERROR[3] + "\n");
-        content.append("Time consumption(s): " + (System.nanoTime() - start) * 1.0e-9);
+        content.append(log("\nMean Absolute Error: " + ERROR[0] + ", " + ERROR[1]
+                + "\nRoot Mean Squared Error: " + ERROR[2] + ", " + ERROR[3]));
         saveRunningResult(content.toString(), RESULTTEXT);
         memoStat();
     }
@@ -104,6 +106,12 @@ public class CollaborativeFiltering {
         return success;
     }
 
+    private static String log(String debug) {
+        String ouput = "Time:" + (System.nanoTime() - STARTTIME) * 1.0e-9 + " " + debug + "\n";
+        System.out.print(ouput);
+        return ouput;
+    }
+
     //Heap utilization statistics
     private static void memoStat() {
         double mb = 1024 * 1024;
@@ -153,12 +161,15 @@ class User {
         }
     }
 
-    /**
-     * return the rated score of movie specified by mid
-     */
     int getRating(int mid) {
-        int index;
-        return (index = Arrays.binarySearch(movieIds, mid)) > -1 ? ratings[index] : CollaborativeFiltering.ESTIMATED_SCORE;
+        return ratings[Arrays.binarySearch(movieIds, mid)];
+    }
+
+    /**
+     * return true if the user has rated movie specified by mid
+     */
+    boolean hasRated(int mid) {
+        return Arrays.binarySearch(movieIds, mid) > -1;
     }
 
     /**
@@ -168,7 +179,7 @@ class User {
         final double[] result = {0};
         final double[] norm = {0};
         //Todo::Use lambda expression to exploit parallelism
-        Arrays.stream(users).forEach(user -> {
+        Arrays.stream(users).filter(user -> user.hasRated(mid)).forEach(user -> {
             double w = core.getWeight(userId, user.userId);
             if (w != 0) {
                 norm[0] += Math.abs(w);
