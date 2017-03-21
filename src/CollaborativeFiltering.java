@@ -37,7 +37,7 @@ public class CollaborativeFiltering {
             content.append("User:" + User.Uids[tsr.index] + "\n");
             Arrays.stream(tsr.movieIds).forEach(mid -> {
                 double pScore = tsr.index > -1 ? allUsers[tsr.index].predictScore(allUsers, mid) : ESTIMATED_SCORE;
-                int realRating = tsr.getRating(mid);
+                int realRating = (int) tsr.dRatings[Arrays.binarySearch(tsr.movieIds, mid)];
                 double error = pScore - realRating;
                 ERROR[0] += Math.abs(error);
                 ERROR[1] += error * error;
@@ -129,9 +129,8 @@ public class CollaborativeFiltering {
 class User {
 
     int[] movieIds;
-    int[] ratings;
+    double[] dRatings;
     double meanScore;
-    double[] meanErrors;
     //Will eventually become consecutive id from 0 -> number of users for fast accessing
     int index;
     //Cache the rating of latest found movie
@@ -150,21 +149,18 @@ class User {
     void preCompute(Map<Integer, Integer> ratings, boolean isBase, int position) {
         int size = ratings.size();
         movieIds = new int[size];
-        this.ratings = new int[size];
+        dRatings = new double[size];
         int i = 0;
         for (Map.Entry<Integer, Integer> rating : ratings.entrySet()) {
             movieIds[i] = rating.getKey();
             int r = rating.getValue();
-            this.ratings[i++] = r;
+            dRatings[i++] = r;
             meanScore += r;
         }
         meanScore /= size;
         if (isBase) {
             index = position;
-            meanErrors = new double[size];
-            for (int j = 0; j < size; j++) {
-                meanErrors[j] = this.ratings[j] - meanScore;
-            }
+            for (int j = 0; j < size; j++) dRatings[j] -= meanScore;
         } else {
             index = Arrays.binarySearch(Uids, index);//Will less than 0 if test user doesn't exist in database
         }
@@ -176,22 +172,8 @@ class User {
     boolean hasRated(int mid) {
         int i = Arrays.binarySearch(movieIds, mid);//-------------------------------------------------------------------
         boolean rated = i > -1;
-        if (rated) cache = meanErrors[i];
+        if (rated) cache = dRatings[i];
         return rated;
-    }
-
-    /**
-     * Get the rating by movie id
-     */
-    int getRating(int mid) {
-        return ratings[Arrays.binarySearch(movieIds, mid)];
-    }
-
-    /**
-     * Get the mean error by movie id
-     */
-    double getMeanError(int mid) {
-        return meanErrors[Arrays.binarySearch(movieIds, mid)];//--------------------------------------------------------
     }
 
     /**
@@ -228,24 +210,24 @@ class Correlation {
             User u1 = users[i];
             for (int j = 0; j < i; j++) {
                 User u2 = users[j];
-                int m = u1.movieIds.length - 1;
-                int n = u2.movieIds.length - 1;
+                int m = 0;
+                int n = 0;
                 double s1 = 0, s2 = 0, s3 = 0;
-                while (m >= 0 && n >= 0) {
+                while (m < u1.movieIds.length && n < u2.movieIds.length) {
                     int mid1 = u1.movieIds[m];
                     int mid2 = u2.movieIds[n];
-                    if (mid1 > mid2) {
-                        m--;
-                    } else if (mid1 < mid2) {
-                        n--;
+                    if (mid1 < mid2) {
+                        m++;
+                    } else if (mid1 > mid2) {
+                        n++;
                     } else {
-                        double v1 = u1.getMeanError(mid1);//-!performance critical
-                        double v2 = u2.getMeanError(mid2);//-!performance critical
+                        double v1 = u1.dRatings[m];//-!performance critical
+                        double v2 = u2.dRatings[m];//-!performance critical
                         s1 += v1 * v2;
                         s2 += v1 * v1;
                         s3 += v2 * v2;
-                        m--;
-                        n--;
+                        m++;
+                        n++;
                     }
                 }
                 if ((s3 *= s2) != 0) weights[i][j] = s1 / Math.sqrt(s3);
