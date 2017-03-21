@@ -39,7 +39,7 @@ public class CollaborativeFiltering {
                 int position;
                 double pScore = (position = Arrays.binarySearch(User.Uids, tsr.userId)) > -1 ?
                         allUsers[position].predictScore(core, allUsers, mid) : ESTIMATED_SCORE;
-                int realRating = tsr.ratings[Arrays.binarySearch(tsr.movieIds, mid)];
+                int realRating = tsr.getRating(mid);
                 double error = pScore - realRating;
                 ERROR[0] += Math.abs(error);
                 ERROR[1] += error * error;
@@ -168,6 +168,12 @@ class User {
         if (rated) cache = ratings[i] - meanScore;
         return rated;
     }
+    /**
+     * Get the rating by movie id
+     * */
+    int getRating(int mid){
+        return ratings[Arrays.binarySearch(movieIds,mid)];
+    }
 
     /**
      * Method used to calculate the predicted rating for one movie
@@ -203,30 +209,29 @@ class Correlation {
             User u1 = users[i];
             for (int j = 0; j < i; j++) {
                 User u2 = users[j];
-                int m = 0;
-                int n = 0;
+                int m = u1.movieIds.length - 1;
+                int n = u2.movieIds.length - 1;
                 double s1 = 0, s2 = 0, s3 = 0;
-                while (m < u1.movieIds.length && n < u2.movieIds.length) {
+                while (m >= 0 && n >= 0) {
                     int mid1 = u1.movieIds[m];
                     int mid2 = u2.movieIds[n];
-                    if (mid1 < mid2) {
-                        m++;
-                    } else if (mid1 > mid2) {
-                        n++;
+                    if (mid1 > mid2) {
+                        m--;
+                    } else if (mid1 < mid2) {
+                        n--;
                     } else {
-                        double v1 = u1.ratings[Arrays.binarySearch(u1.movieIds, mid1)] - u1.meanScore;//-!performance critical
-                        double v2 = u2.ratings[Arrays.binarySearch(u2.movieIds, mid1)] - u2.meanScore;//-!performance critical
+                        double v1 = u1.getRating(mid1) - u1.meanScore;//-!performance critical
+                        double v2 = u2.getRating(mid2) - u2.meanScore;//-!performance critical
                         s1 += v1 * v2;
                         s2 += v1 * v1;
                         s3 += v2 * v2;
-                        m++;
-                        n++;
+                        m--;
+                        n--;
                     }
                 }
                 if ((s3 *= s2) != 0) weights[i][j] = s1 / Math.sqrt(s3);
             }
             weights[i][i] = 1;
-            System.out.println(i);//--------------speed check out-------------------
         }
     }
 
