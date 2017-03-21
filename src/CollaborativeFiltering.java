@@ -131,6 +131,7 @@ class User {
     int[] movieIds;
     int[] ratings;
     double meanScore;
+    double[] meanErrors;
     //Will eventually become consecutive id from 0 -> number of users for fast accessing
     int index;
     //Cache the rating of latest found movie
@@ -147,7 +148,6 @@ class User {
      * Pre-compute some useful parameters for later usage
      */
     void preCompute(Map<Integer, Integer> ratings, boolean isBase, int position) {
-        index = isBase ? position : Arrays.binarySearch(Uids, index);
         int size = ratings.size();
         movieIds = new int[size];
         this.ratings = new int[size];
@@ -159,15 +159,24 @@ class User {
             meanScore += r;
         }
         meanScore /= size;
+        if (isBase) {
+            index = position;
+            meanErrors = new double[size];
+            for (int j = 0; j < size; j++) {
+                meanErrors[j] = this.ratings[j] - meanScore;
+            }
+        } else {
+            index = Arrays.binarySearch(Uids, index);//Will less than 0 if test user doesn't exist in database
+        }
     }
 
     /**
      * return true if the user has rated movie specified by mid
      */
     boolean hasRated(int mid) {
-        int i = Arrays.binarySearch(movieIds, mid);
+        int i = Arrays.binarySearch(movieIds, mid);//-------------------------------------------------------------------
         boolean rated = i > -1;
-        if (rated) cache = ratings[i] - meanScore;
+        if (rated) cache = meanErrors[i];
         return rated;
     }
 
@@ -176,6 +185,13 @@ class User {
      */
     int getRating(int mid) {
         return ratings[Arrays.binarySearch(movieIds, mid)];
+    }
+
+    /**
+     * Get the mean error by movie id
+     */
+    double getMeanError(int mid) {
+        return meanErrors[Arrays.binarySearch(movieIds, mid)];//--------------------------------------------------------
     }
 
     /**
@@ -223,8 +239,8 @@ class Correlation {
                     } else if (mid1 < mid2) {
                         n--;
                     } else {
-                        double v1 = u1.getRating(mid1) - u1.meanScore;//-!performance critical
-                        double v2 = u2.getRating(mid2) - u2.meanScore;//-!performance critical
+                        double v1 = u1.getMeanError(mid1);//-!performance critical
+                        double v2 = u2.getMeanError(mid2);//-!performance critical
                         s1 += v1 * v2;
                         s2 += v1 * v1;
                         s3 += v2 * v2;
