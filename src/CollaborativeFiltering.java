@@ -170,7 +170,7 @@ class User {
      * return true if the user has rated movie specified by mid
      */
     boolean hasRated(int mid) {
-        int i = Arrays.binarySearch(movieIds, mid);//-------------------------------------------------------------------
+        int i = Arrays.binarySearch(movieIds, mid);//performance crucial!!!
         boolean rated = i > -1;
         if (rated) cache = dRatings[i];
         return rated;
@@ -210,24 +210,18 @@ class Correlation {
             User u1 = users[i];
             for (int j = 0; j < i; j++) {
                 User u2 = users[j];
+                double s1 = 0, s2 = 0, s3 = 0;
                 int m = 0;
                 int n = 0;
-                double s1 = 0, s2 = 0, s3 = 0;
                 while (m < u1.movieIds.length && n < u2.movieIds.length) {
-                    int mid1 = u1.movieIds[m];
-                    int mid2 = u2.movieIds[n];
-                    if (mid1 < mid2) {
-                        m++;
-                    } else if (mid1 > mid2) {
-                        n++;
-                    } else {
-                        double v1 = u1.dRatings[m];//-!performance critical
-                        double v2 = u2.dRatings[n];//-!performance critical
+                    if (u1.movieIds[m] < u2.movieIds[n]) m++;
+                    else if (u1.movieIds[m] > u2.movieIds[n]) n++;
+                    else {
+                        double v1 = u1.dRatings[m++];//-!performance critical
+                        double v2 = u2.dRatings[n++];//-!performance critical
                         s1 += v1 * v2;
                         s2 += v1 * v1;
                         s3 += v2 * v2;
-                        m++;
-                        n++;
                     }
                 }
                 if ((s3 *= s2) != 0) weights[i][j] = s1 / Math.sqrt(s3);
