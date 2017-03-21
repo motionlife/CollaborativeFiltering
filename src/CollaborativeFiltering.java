@@ -220,25 +220,12 @@ class Correlation {
                 int m = 0;
                 int n = 0;
                 while (m < u1.movieIds.length && n < u2.movieIds.length) {
-//                    if (u1.movieIds[m] < u2.movieIds[n]) m++;
-//                    else if (u1.movieIds[m] > u2.movieIds[n]) n++;
-//                    else {
-//                          s1 += u1.dRatings[m] * u2.dRatings[n];
-//                          s2 += u1.dSquares[m++];
-//                          s3 += u2.dSquares[n++];
-//                    }
-                    int sign = u1.movieIds[m] - u2.movieIds[n];
-                    switch ((sign >> 31) | (-sign >>> 31)) {
-                        case 1:
-                            n++;
-                            break;
-                        case -1:
-                            m++;
-                            break;
-                        default:
-                            s1 += u1.dRatings[m] * u2.dRatings[n];
-                            s2 += u1.dSquares[m++];
-                            s3 += u2.dSquares[n++];
+                    if (u1.movieIds[m] < u2.movieIds[n]) m++;
+                    else if (u1.movieIds[m] > u2.movieIds[n]) n++;
+                    else {
+                        s1 += u1.dRatings[m] * u2.dRatings[n];
+                        s2 += u1.dSquares[m++];
+                        s3 += u2.dSquares[n++];
                     }
                 }
                 if ((s3 *= s2) != 0) weights[i][j] = s1 / Math.sqrt(s3);
