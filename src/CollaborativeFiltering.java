@@ -131,7 +131,6 @@ class User {
 
     int[] movieIds;
     double[] dRatings;
-    double[] dSquares;
     double meanScore;
     //Will eventually become consecutive id from 0 -> number of users for fast accessing
     int index;
@@ -162,10 +161,9 @@ class User {
         meanScore /= size;
         if (isBase) {
             index = position;
-            dSquares = new double[size];
             for (int j = 0; j < size; j++) {
                 dRatings[j] -= meanScore;//cache (vote(j)-mean)
-                dSquares[j] = dRatings[j] * dRatings[j];//cache (vote(j)-mean)^2
+                //While consider the size and locality of cpu cache, may also store (vote(j)-mean)^2 to boost performance
             }
         } else {
             index = Arrays.binarySearch(Uids, index);//Will less than 0 if test user doesn't exist in database
@@ -223,9 +221,11 @@ class Correlation {
                     if (u1.movieIds[m] < u2.movieIds[n]) m++;
                     else if (u1.movieIds[m] > u2.movieIds[n]) n++;
                     else {
-                        s1 += u1.dRatings[m] * u2.dRatings[n];
-                        s2 += u1.dSquares[m++];
-                        s3 += u2.dSquares[n++];
+                        double v1 = u1.dRatings[m++];//-!performance critical
+                        double v2 = u2.dRatings[n++];//-!performance critical
+                        s1 += v1 * v2;
+                        s2 += v1 * v1;
+                        s3 += v2 * v2;
                     }
                 }
                 if ((s3 *= s2) != 0) weights[i][j] = s1 / Math.sqrt(s3);
