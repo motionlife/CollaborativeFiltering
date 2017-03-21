@@ -1,6 +1,7 @@
-/**
- * Created by Hao Xiong haoxiong@outlook.com
- * Mar 17, 2017
+/*
+  Creator: Hao Xiong (haoxiong@outlook.com)
+  Date: Mar 17, 2017
+  Data Source: Netflix Prize
  */
 
 import java.io.*;
@@ -42,7 +43,7 @@ public class CollaborativeFiltering {
                 ERROR[0] += Math.abs(error);
                 ERROR[1] += error * error;
                 numberOfItems[0]++;
-                content.append("\tMovie:" + mid + " => " + df.format(pScore) + " (" + realRating + ")\n");
+                content.append("\tMovie:" + mid + "=>" + df.format(pScore) + "(" + realRating + ")\n");
             });
         });
         ERROR[0] = ERROR[0] / numberOfItems[0];
@@ -104,9 +105,9 @@ public class CollaborativeFiltering {
     }
 
     private static String log(String debug) {
-        String ouput = "Time(s):" + (System.nanoTime() - STARTTIME) * 1.0e-9 + " " + debug + "\n";
-        System.out.print(ouput);
-        return ouput;
+        String output = "Time(s):" + (System.nanoTime() - STARTTIME) * 1.0e-9 + " " + debug + "\n";
+        System.out.print(output);
+        return output;
     }
 
     //Heap utilization statistics
@@ -114,12 +115,12 @@ public class CollaborativeFiltering {
         double mb = 1024 * 1024;
         //Getting the runtime reference from system
         Runtime runtime = Runtime.getRuntime();
-        String info = "\n##### Heap utilization statistics [MB] #####"
+        return "\n" +
+                "##### Heap utilization statistics [MB] #####"
                 + "\nUsed Memory:" + (runtime.totalMemory() - runtime.freeMemory()) / mb
                 + "\nFree Memory:" + runtime.freeMemory() / mb
                 + "\nTotal Memory:" + runtime.totalMemory() / mb
                 + "\nMax Memory:" + runtime.maxMemory() / mb;
-        return info;
     }
 }
 
@@ -130,6 +131,7 @@ class User {
 
     int[] movieIds;
     double[] dRatings;
+    double[] dSquares;
     double meanScore;
     //Will eventually become consecutive id from 0 -> number of users for fast accessing
     int index;
@@ -160,7 +162,11 @@ class User {
         meanScore /= size;
         if (isBase) {
             index = position;
-            for (int j = 0; j < size; j++) dRatings[j] -= meanScore;
+            dSquares = new double[size];
+            for (int j = 0; j < size; j++) {
+                dRatings[j] -= meanScore;//cache (vote(j)-mean)
+                dSquares[j] = dRatings[j] * dRatings[j];//cache (vote(j)-mean)^2
+            }
         } else {
             index = Arrays.binarySearch(Uids, index);//Will less than 0 if test user doesn't exist in database
         }
@@ -214,14 +220,25 @@ class Correlation {
                 int m = 0;
                 int n = 0;
                 while (m < u1.movieIds.length && n < u2.movieIds.length) {
-                    if (u1.movieIds[m] < u2.movieIds[n]) m++;
-                    else if (u1.movieIds[m] > u2.movieIds[n]) n++;
-                    else {
-                        double v1 = u1.dRatings[m++];//-!performance critical
-                        double v2 = u2.dRatings[n++];//-!performance critical
-                        s1 += v1 * v2;
-                        s2 += v1 * v1;
-                        s3 += v2 * v2;
+//                    if (u1.movieIds[m] < u2.movieIds[n]) m++;
+//                    else if (u1.movieIds[m] > u2.movieIds[n]) n++;
+//                    else {
+//                          s1 += u1.dRatings[m] * u2.dRatings[n];
+//                          s2 += u1.dSquares[m++];
+//                          s3 += u2.dSquares[n++];
+//                    }
+                    int sign = u1.movieIds[m] - u2.movieIds[n];
+                    switch ((sign >> 31) | (-sign >>> 31)) {
+                        case 1:
+                            n++;
+                            break;
+                        case -1:
+                            m++;
+                            break;
+                        default:
+                            s1 += u1.dRatings[m] * u2.dRatings[n];
+                            s2 += u1.dSquares[m++];
+                            s3 += u2.dSquares[n++];
                     }
                 }
                 if ((s3 *= s2) != 0) weights[i][j] = s1 / Math.sqrt(s3);
