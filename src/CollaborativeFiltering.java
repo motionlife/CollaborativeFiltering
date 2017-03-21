@@ -21,7 +21,7 @@ public class CollaborativeFiltering {
         int[] numberOfItems = {0};
         double[] ERROR = {0, 0};
         StringBuilder content = new StringBuilder();
-        DecimalFormat df = new DecimalFormat("#.####");
+        DecimalFormat df = new DecimalFormat("#.###");
 
         User[] allUsers = parseUsers(TRAININGDATA, true);
         content.append(log("Finished parsing training data."));
@@ -42,7 +42,7 @@ public class CollaborativeFiltering {
                 ERROR[0] += Math.abs(error);
                 ERROR[1] += error * error;
                 numberOfItems[0]++;
-                content.append("\tMovie:" + mid + " => " + df.format(pScore) + "(" + realRating + ")\n");
+                content.append("\tMovie:" + mid + " => " + df.format(pScore) + " (" + realRating + ")\n");
             });
         });
         ERROR[0] = ERROR[0] / numberOfItems[0];
