@@ -221,13 +221,11 @@ class Correlation {
                     } else if (mid1 > mid2) {
                         n++;
                     } else {
-                        double v1 = u1.dRatings[m];//-!performance critical
-                        double v2 = u2.dRatings[n];//-!performance critical
+                        double v1 = u1.dRatings[m++];//-!performance critical
+                        double v2 = u2.dRatings[n++];//-!performance critical
                         s1 += v1 * v2;
                         s2 += v1 * v1;
                         s3 += v2 * v2;
-                        m++;
-                        n++;
                     }
                 }
                 if ((s3 *= s2) != 0) weights[i][j] = s1 / Math.sqrt(s3);
