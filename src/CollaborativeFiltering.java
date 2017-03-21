@@ -222,7 +222,7 @@ class Correlation {
                         n++;
                     } else {
                         double v1 = u1.dRatings[m];//-!performance critical
-                        double v2 = u2.dRatings[m];//-!performance critical
+                        double v2 = u2.dRatings[n];//-!performance critical
                         s1 += v1 * v2;
                         s2 += v1 * v1;
                         s3 += v2 * v2;
