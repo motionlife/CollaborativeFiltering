@@ -132,14 +132,10 @@ class User {
 
     int[] movieIds;
     float[] dRatings;//for the locality of cpu cache we don't choose double
-    float[] dSquares;
     float meanScore;
-    //Will eventually become consecutive id from 0 -> number of users for fast accessing
-    int index;
-    //Cache the rating of latest found movie
-    private float cache;
-    //A map between the index of user in User[] and user id
-    static int[] Uids;
+    int index;//Will eventually become consecutive id from 0 -> number of users for fast accessing
+    private float cache;//Cache the rating of latest found movie
+    static int[] Uids;//A map between the index of user in User[] and user id
 
     //Construct a user by its first rating record
     public User(int uid) {
@@ -163,12 +159,7 @@ class User {
         meanScore /= size;
         if (isBase) {
             index = position;
-            dSquares = new float[size];
-            for (int j = 0; j < size; j++) {
-                dRatings[j] -= meanScore;//cache (vote(j)-mean)
-                dSquares[j] = dRatings[j] * dRatings[j];
-                //While consider the size and locality of cpu cache, may also store (vote(j)-mean)^2 to boost performance
-            }
+            for (int j = 0; j < size; j++) dRatings[j] -= meanScore;//cache (vote(j)-mean)
         } else {
             index = Arrays.binarySearch(Uids, index);//Will less than 0 if test user doesn't exist in database
         }
@@ -225,9 +216,11 @@ class Correlation {
                     if (u1.movieIds[m] < u2.movieIds[n]) m++;
                     else if (u1.movieIds[m] > u2.movieIds[n]) n++;
                     else {
-                        s1 += u1.dRatings[m] * u2.dRatings[n];
-                        s2 += u1.dSquares[m++];
-                        s3 += u2.dSquares[n++];
+                        float v1 = u1.dRatings[m++];
+                        float v2 = u2.dRatings[n++];
+                        s1 += v1 * v2;
+                        s2 += v1 * v1;
+                        s3 += v2 * v2;
                     }
                 }
                 if ((s3 *= s2) != 0) weights[i][j] = s1 / Math.sqrt(s3);
