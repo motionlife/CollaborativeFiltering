@@ -14,12 +14,12 @@ This code uses java 8 stream technology to fully utilize the parallelism of your
 It will consume almost all of your cpu resource and more than 4gb ram at peak. When tested on my lousy laptop, it took only about 7 minutes to finish the running.
 
 ### Result
-Running Time(s):383.519034659 <b>
-Mean Absolute Error: 0.6746778890285756<b>
-Root Mean Squared Error: 0.893566392544765<b>
-Time(s):383.519687885 <b>
----Heap utilization statistics [MB]---<b>
-Used Memory:3316.5117<b>
-Free Memory:1590.4882<b>
-Total Memory:4907.0<b>
-Max Memory:4907.0<b>
+Running Time(s):383.519034659 <br>
+Mean Absolute Error: 0.6746778890285756<br>
+Root Mean Squared Error: 0.893566392544765<br>
+Time(s):383.519687885 <br>
+---Heap utilization statistics [MB]---<br>
+Used Memory:3316.5117<br>
+Free Memory:1590.4882<br>
+Total Memory:4907.0<br>
+Max Memory:4907.0<br>
