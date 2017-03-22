@@ -19,8 +19,8 @@ public class CollaborativeFiltering {
 
     public static void main(String[] args) {
         STARTTIME = System.nanoTime();
-        int[] numberOfItems = {0};
-        double[] ERROR = {0, 0};
+        final int[] numberOfItems = {0};
+        final double[] ERROR = {0, 0};
         StringBuilder content = new StringBuilder();
         DecimalFormat df = new DecimalFormat("#.###");
 
@@ -33,22 +33,22 @@ public class CollaborativeFiltering {
         Correlation.calCorrelation(allUsers);
         content.append(log("Finished Matrix Calculation."));
 
-        //Todo::Use lambda expression to exploit parallelism
-        Arrays.stream(testUsers).forEach(tsr -> {
-            content.append("User:" + User.Uids[tsr.index] + "\n");
-            Arrays.stream(tsr.movieIds).forEach(mid -> {
+        content.append("User:uid=>Movie:mid=>predicted_rating(real_rating)\n");
+        //Todo::Use Java 8 stream and lambda expression to exploit parallelism
+        Arrays.stream(testUsers).parallel().forEach(tsr -> {
+            for (int mid : tsr.movieIds) {
                 double pScore = tsr.index > -1 ? allUsers[tsr.index].predictScore(allUsers, mid) : ESTIMATED_SCORE;
                 int realRating = (int) tsr.dRatings[Arrays.binarySearch(tsr.movieIds, mid)];
                 double error = pScore - realRating;
                 ERROR[0] += Math.abs(error);
                 ERROR[1] += error * error;
                 numberOfItems[0]++;
-                content.append("\tMovie:" + mid + "=>" + df.format(pScore) + "(" + realRating + ")\n");
-            });
+                content.append("User:" + User.Uids[tsr.index] + "=>Movie:" + mid + "=>" + df.format(pScore) + "(" + realRating + ")\n");
+            }
         });
         ERROR[0] = ERROR[0] / numberOfItems[0];
         ERROR[1] = Math.sqrt(ERROR[1] / numberOfItems[0]);
-        content.append(log("\n\nMean Absolute Error: " + ERROR[0] + "\nRoot Mean Squared Error: " + ERROR[1]));
+        content.append(log("\nMean Absolute Error: " + ERROR[0] + "\nRoot Mean Squared Error: " + ERROR[1]));
         content.append(log(memoStat()));
         saveRunningResult(content.toString(), RESULTTEXT);
     }
@@ -131,7 +131,7 @@ public class CollaborativeFiltering {
 class User {
 
     int[] movieIds;
-    float[] dRatings;//for the locality of cpu cache we don't choose double
+    float[] dRatings;//for the locality of cpu cache we don't choose double, won't affect the result
     float meanScore;
     int index;//Will eventually become consecutive id from 0 -> number of users for fast accessing
     private float cache;//Cache the rating of latest found movie
@@ -179,17 +179,18 @@ class User {
      * Method used to calculate the predicted rating for one movie
      */
     double predictScore(User[] users, int mid) {
-        final double[] result = {0};
-        final double[] norm = {0};
-        //Todo::Use lambda expression to exploit parallelism
-        Arrays.stream(users).filter(usr -> usr.hasRated(mid)).forEach(usr -> {
-            double w = Correlation.getWeight(index, usr.index);
-            if (w != 0) {
-                norm[0] += Math.abs(w);
-                result[0] += usr.cache * w;
+        double result = 0;
+        double norm = 0;
+        for (User user : users) {
+            if (user.hasRated(mid)) {
+                double w = Correlation.getWeight(index, user.index);
+                if (w != 0) {
+                    norm += Math.abs(w);
+                    result += w * user.cache;
+                }
             }
-        });
-        return meanScore + (norm[0] > 0 ? result[0] / norm[0] : 0);
+        }
+        return meanScore + (norm > 0 ? result / norm : 0);
     }
 }
 
@@ -204,8 +205,10 @@ class Correlation {
     static void calCorrelation(User[] users) {
         int size = User.Uids.length;
         weights = new double[size][];
-        for (int i = 0; i < size; i++) {
-            weights[i] = new double[i + 1];
+        for (int i = 0; i < size; i++) weights[i] = new double[i + 1];
+        //Todo::Use Java 8 stream and lambda expression to exploit parallelism
+        Arrays.stream(weights).parallel().forEach(ws -> {
+            int i = ws.length - 1;
             User u1 = users[i];
             for (int j = 0; j < i; j++) {
                 User u2 = users[j];
@@ -213,8 +216,10 @@ class Correlation {
                 int m = 0;
                 int n = 0;
                 while (m < u1.movieIds.length && n < u2.movieIds.length) {
-                    if (u1.movieIds[m] < u2.movieIds[n]) m++;
-                    else if (u1.movieIds[m] > u2.movieIds[n]) n++;
+                    int mid1 = u1.movieIds[m];
+                    int mid2 = u2.movieIds[n];
+                    if (mid1 < mid2) m++;
+                    else if (mid1 > mid2) n++;
                     else {
                         float v1 = u1.dRatings[m++];
                         float v2 = u2.dRatings[n++];
@@ -226,7 +231,7 @@ class Correlation {
                 if ((s3 *= s2) != 0) weights[i][j] = s1 / Math.sqrt(s3);
             }
             weights[i][i] = 1;
-        }
+        });
     }
 
     static double getWeight(int i, int j) {
