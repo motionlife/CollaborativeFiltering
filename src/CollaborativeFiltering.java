@@ -57,17 +57,18 @@ public class CollaborativeFiltering {
      * Read the data set file convert them to user list
      */
     private static User[] parseUsers(String name, boolean isBase) {
-        Map<Integer, Map<Integer, Integer>> userRatings = new TreeMap<>();
+        Map<Integer, Map<Integer, Float>> userRatings = new TreeMap<>();
         try (BufferedReader br = new BufferedReader(new FileReader(name))) {
             String line;
             while ((line = br.readLine()) != null) {
                 String[] s = line.split(",");
-                int[] v = {Integer.parseInt(s[0]), Integer.parseInt(s[1]), (int) Float.parseFloat(s[2])};
+                int[] v = {Integer.parseInt(s[0]), Integer.parseInt(s[1])};
+                Float r = Float.parseFloat(s[2]);
                 if (userRatings.containsKey(v[1])) {
-                    userRatings.get(v[1]).put(v[0], v[2]);
+                    userRatings.get(v[1]).put(v[0], r);
                 } else {
-                    Map<Integer, Integer> rating = new TreeMap<>();
-                    rating.put(v[0], v[2]);//if same user rated two movie the previous rating will be overwritten.
+                    Map<Integer, Float> rating = new TreeMap<>();
+                    rating.put(v[0], r);//if same user rated two movie the previous rating will be overwritten.
                     userRatings.put(v[1], rating);
                 }
             }
@@ -112,7 +113,7 @@ public class CollaborativeFiltering {
 
     //Heap utilization statistics
     private static String memoStat() {
-        double mb = 1024 * 1024;
+        float mb = 1024 * 1024;
         //Getting the runtime reference from system
         Runtime runtime = Runtime.getRuntime();
         return "\n" +
@@ -130,12 +131,13 @@ public class CollaborativeFiltering {
 class User {
 
     int[] movieIds;
-    double[] dRatings;
-    double meanScore;
+    float[] dRatings;//for the locality of cpu cache we don't choose double
+    float[] dSquares;
+    float meanScore;
     //Will eventually become consecutive id from 0 -> number of users for fast accessing
     int index;
     //Cache the rating of latest found movie
-    private double cache;
+    private float cache;
     //A map between the index of user in User[] and user id
     static int[] Uids;
 
@@ -147,22 +149,24 @@ class User {
     /**
      * Pre-compute some useful parameters for later usage
      */
-    void preCompute(Map<Integer, Integer> ratings, boolean isBase, int position) {
+    void preCompute(Map<Integer, Float> ratings, boolean isBase, int position) {
         int size = ratings.size();
         movieIds = new int[size];
-        dRatings = new double[size];
+        dRatings = new float[size];
         int i = 0;
-        for (Map.Entry<Integer, Integer> rating : ratings.entrySet()) {
+        for (Map.Entry<Integer, Float> rating : ratings.entrySet()) {
             movieIds[i] = rating.getKey();
-            int r = rating.getValue();
+            float r = rating.getValue();
             dRatings[i++] = r;
             meanScore += r;
         }
         meanScore /= size;
         if (isBase) {
             index = position;
+            dSquares = new float[size];
             for (int j = 0; j < size; j++) {
                 dRatings[j] -= meanScore;//cache (vote(j)-mean)
+                dSquares[j] = dRatings[j] * dRatings[j];
                 //While consider the size and locality of cpu cache, may also store (vote(j)-mean)^2 to boost performance
             }
         } else {
@@ -221,11 +225,9 @@ class Correlation {
                     if (u1.movieIds[m] < u2.movieIds[n]) m++;
                     else if (u1.movieIds[m] > u2.movieIds[n]) n++;
                     else {
-                        double v1 = u1.dRatings[m++];//-!performance critical
-                        double v2 = u2.dRatings[n++];//-!performance critical
-                        s1 += v1 * v2;
-                        s2 += v1 * v1;
-                        s3 += v2 * v2;
+                        s1 += u1.dRatings[m] * u2.dRatings[n];
+                        s2 += u1.dSquares[m++];
+                        s3 += u2.dSquares[n++];
                     }
                 }
                 if ((s3 *= s2) != 0) weights[i][j] = s1 / Math.sqrt(s3);
