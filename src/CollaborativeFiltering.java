@@ -55,7 +55,7 @@ public class CollaborativeFiltering {
             }
         }
         content.append(log("\nMean Absolute Error: " + mae / numberOfItems
-                + "\nRoot Mean Squared Error: " + rmse / numberOfItems));
+                + "\nRoot Mean Squared Error: " + Math.sqrt(rmse) / numberOfItems));
         content.append(log(memoStat()));
         if (saveRunningResult(content.toString(), RESULTTEXT))
             System.out.println("Success! Predicted results have been save to " + RESULTTEXT);

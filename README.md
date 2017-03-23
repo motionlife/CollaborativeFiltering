@@ -15,11 +15,11 @@ It will consume almost all of your cpu resource and more than 4gb ram at peak. W
 
 ### Result
 Running Time(s):383.519034659 <br>
-Mean Absolute Error: 0.6746778890285756<br>
-Root Mean Squared Error: 0.893566392544765<br>
-Time(s):383.519687885 <br>
----Heap utilization statistics [MB]---<br>
-Used Memory:3316.5117<br>
-Free Memory:1590.4882<br>
+Mean Absolute Error: 0.6949234973323533<br>
+Root Mean Squared Error: 0.8844601261449944<br>
+Time(s):362.309439441 <br>
+##### Heap utilization statistics [MB] #####
+Used Memory:3267.4062<br>
+Free Memory:1639.5938<br>
 Total Memory:4907.0<br>
 Max Memory:4907.0<br>
