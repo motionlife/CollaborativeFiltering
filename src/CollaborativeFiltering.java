@@ -45,13 +45,13 @@ public class CollaborativeFiltering {
             User tu = testUsers[i];
             content.append("User:" + User.Uids[i] + "\n");
             for (int j = 0; j < tu.movieIds.length; j++) {
-                double error = tu.errors[j];
-                int realRating = (int) tu.dRatings[j];
-                double predicted = error + realRating;
+                double pr = tu.pRatings[j];
+                int rr = (int) tu.dRatings[j];
+                double error = pr - rr;
                 mae += Math.abs(error);
                 rmse += error * error;
                 numberOfItems++;
-                content.append("\tMovie:" + tu.movieIds[j] + "=>" + df.format(predicted) + "(" + realRating + ")\n");
+                content.append("\tMovie:" + tu.movieIds[j] + "=>" + df.format(pr) + "(" + rr + ")\n");
             }
         }
         content.append(log("\nMean Absolute Error: " + mae / numberOfItems
@@ -179,7 +179,7 @@ class User {
      */
     int[] movieIds;
     float[] dRatings;
-    double[] errors;
+    double[] pRatings;
 
     float meanScore;
     int index;//Will eventually become consecutive id from 0 -> number of users for fast accessing
@@ -211,7 +211,7 @@ class User {
             for (int j = 0; j < size; j++) dRatings[j] -= meanScore;//cache (vote(j)-mean)
         } else {
             index = Arrays.binarySearch(Uids, index);//Will less than 0 if test user doesn't exist in database
-            errors = new double[size];
+            pRatings = new double[size];
         }
     }
 
@@ -233,7 +233,7 @@ class User {
                 }
             }
         }
-        errors[i] = base[index].meanScore + (norm > 0 ? result / norm : 0) - dRatings[i];
+        pRatings[i] = base[index].meanScore + (norm > 0 ? result / norm : 0);
     }
 }
 
