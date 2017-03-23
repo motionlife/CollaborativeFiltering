@@ -14,43 +14,51 @@ public class CollaborativeFiltering {
     private static final String TRAININGDATA = "data/TrainingRatings.txt";
     private static final String TESTINGDATA = "data/TestingRatings.txt";
     private static final String RESULTTEXT = "result.txt";
-    private static final int ESTIMATED_SCORE = 3;
     private static long STARTTIME;
+    private static double[][] weights;//weights[i][j] represents the correlation between user i and j
 
     public static void main(String[] args) {
         STARTTIME = System.nanoTime();
-        final int[] numberOfItems = {0};
-        final double[] ERROR = {0, 0};
-        StringBuilder content = new StringBuilder();
-        DecimalFormat df = new DecimalFormat("#.###");
+        int numberOfItems = 0;
+        double mae = 0, rmse = 0;
+        StringBuilder content = new StringBuilder(3600000);
 
-        User[] allUsers = parseUsers(TRAININGDATA, true);
+        User.base = parseUsers(TRAININGDATA, true);
         content.append(log("Finished parsing training data."));
 
         User[] testUsers = parseUsers(TESTINGDATA, false);
         content.append(log("Finished parsing testing data."));
 
-        Correlation.calCorrelation(allUsers);
+        calCorrelation();
         content.append(log("Finished Matrix Calculation."));
 
-        content.append("User:uid=>Movie:mid=>predicted_rating(real_rating)\n");
         //Todo::Use Java 8 stream and lambda expression to exploit parallelism
-        Arrays.stream(testUsers).parallel().forEach(tsr -> {
-            for (int mid : tsr.movieIds) {
-                double pScore = tsr.index > -1 ? allUsers[tsr.index].predictScore(allUsers, mid) : ESTIMATED_SCORE;
-                int realRating = (int) tsr.dRatings[Arrays.binarySearch(tsr.movieIds, mid)];
-                double error = pScore - realRating;
-                ERROR[0] += Math.abs(error);
-                ERROR[1] += error * error;
-                numberOfItems[0]++;
-                content.append("User:" + User.Uids[tsr.index] + "=>Movie:" + mid + "=>" + df.format(pScore) + "(" + realRating + ")\n");
+        Arrays.stream(testUsers).parallel()
+                .filter(tu -> tu.index > -1)
+                .forEach(tu -> {
+                    for (int i = 0; i < tu.movieIds.length; i++) tu.predict(i);
+                });
+
+        //isolate the prediction calculation from output for thread safe reason
+        DecimalFormat df = new DecimalFormat("#.####");
+        for (int i = 0; i < testUsers.length; i++) {
+            User tu = testUsers[i];
+            content.append("User:" + User.Uids[i] + "\n");
+            for (int j = 0; j < tu.movieIds.length; j++) {
+                double error = tu.errors[j];
+                int realRating = (int) tu.dRatings[j];
+                double predicted = error + realRating;
+                mae += Math.abs(error);
+                rmse += error * error;
+                numberOfItems++;
+                content.append("\tMovie:" + tu.movieIds[j] + "=>" + df.format(predicted) + "(" + realRating + ")\n");
             }
-        });
-        ERROR[0] = ERROR[0] / numberOfItems[0];
-        ERROR[1] = Math.sqrt(ERROR[1] / numberOfItems[0]);
-        content.append(log("\nMean Absolute Error: " + ERROR[0] + "\nRoot Mean Squared Error: " + ERROR[1]));
+        }
+        content.append(log("\nMean Absolute Error: " + mae / numberOfItems
+                + "\nRoot Mean Squared Error: " + rmse / numberOfItems));
         content.append(log(memoStat()));
-        saveRunningResult(content.toString(), RESULTTEXT);
+        if (saveRunningResult(content.toString(), RESULTTEXT))
+            System.out.println("Success! Predicted results have been save to " + RESULTTEXT);
     }
 
     /**
@@ -86,6 +94,42 @@ public class CollaborativeFiltering {
             users[i++] = user;
         }
         return users;
+    }
+
+    static void calCorrelation() {
+        int size = User.Uids.length;
+        weights = new double[size][];
+        for (int i = 0; i < size; i++) weights[i] = new double[i + 1];
+        //Todo::Use Java 8 stream and lambda expression to exploit parallelism
+        Arrays.stream(weights).parallel().forEach(ws -> {
+            int i = ws.length - 1;
+            User u1 = User.base[i];
+            for (int j = 0; j < i; j++) {
+                User u2 = User.base[j];
+                double s1 = 0, s2 = 0, s3 = 0;
+                int m = 0;
+                int n = 0;
+                while (m < u1.movieIds.length && n < u2.movieIds.length) {
+                    int mid1 = u1.movieIds[m];
+                    int mid2 = u2.movieIds[n];
+                    if (mid1 < mid2) m++;
+                    else if (mid1 > mid2) n++;
+                    else {
+                        float v1 = u1.dRatings[m++];
+                        float v2 = u2.dRatings[n++];
+                        s1 += v1 * v2;
+                        s2 += v1 * v1;
+                        s3 += v2 * v2;
+                    }
+                }
+                if ((s3 *= s2) != 0) weights[i][j] = s1 / Math.sqrt(s3);
+            }
+            weights[i][i] = 1;
+        });
+    }
+
+    static double getWeight(int i, int j) {
+        return i > j ? weights[i][j] : weights[j][i];
     }
 
     /**
@@ -130,12 +174,17 @@ public class CollaborativeFiltering {
  */
 class User {
 
+    /**
+     * The below 3 array are bond by their indices
+     */
     int[] movieIds;
-    float[] dRatings;//for the locality of cpu cache we don't choose double, won't affect the result
+    float[] dRatings;
+    double[] errors;
+
     float meanScore;
     int index;//Will eventually become consecutive id from 0 -> number of users for fast accessing
-    private float cache;//Cache the rating of latest found movie
     static int[] Uids;//A map between the index of user in User[] and user id
+    static User[] base;
 
     //Construct a user by its first rating record
     public User(int uid) {
@@ -154,87 +203,37 @@ class User {
             movieIds[i] = rating.getKey();
             float r = rating.getValue();
             dRatings[i++] = r;
-            meanScore += r;
+            if (isBase) meanScore += r;
         }
-        meanScore /= size;
         if (isBase) {
             index = position;
+            meanScore /= size;
             for (int j = 0; j < size; j++) dRatings[j] -= meanScore;//cache (vote(j)-mean)
         } else {
             index = Arrays.binarySearch(Uids, index);//Will less than 0 if test user doesn't exist in database
+            errors = new double[size];
         }
     }
 
     /**
-     * return true if the user has rated movie specified by mid
+     * Method used to calculate the difference between the predicted rating and real rating for one movie
+     * return the real rating value
      */
-    boolean hasRated(int mid) {
-        int i = Arrays.binarySearch(movieIds, mid);//performance crucial!!!
-        boolean rated = i > -1;
-        if (rated) cache = dRatings[i];
-        return rated;
-    }
-
-    /**
-     * Method used to calculate the predicted rating for one movie
-     */
-    double predictScore(User[] users, int mid) {
+    void predict(int i) {
         double result = 0;
         double norm = 0;
-        for (User user : users) {
-            if (user.hasRated(mid)) {
-                double w = Correlation.getWeight(index, user.index);
+        for (User user : base) {
+            int pos = Arrays.binarySearch(user.movieIds, movieIds[i]);
+            //if the user has ever rated this movie
+            if (pos > -1) {
+                double w = CollaborativeFiltering.getWeight(index, user.index);
                 if (w != 0) {
                     norm += Math.abs(w);
-                    result += w * user.cache;
+                    result += w * user.dRatings[pos];
                 }
             }
         }
-        return meanScore + (norm > 0 ? result / norm : 0);
+        errors[i] = base[index].meanScore + (norm > 0 ? result / norm : 0) - dRatings[i];
     }
 }
 
-/**
- * Represent the Correlation Triangular Matrices W(i,j)
- * Calculate the correlation weight between user i and user j
- */
-class Correlation {
-    //weights[i][j] represents the correlation between user i and j
-    private static double[][] weights;
-
-    static void calCorrelation(User[] users) {
-        int size = User.Uids.length;
-        weights = new double[size][];
-        for (int i = 0; i < size; i++) weights[i] = new double[i + 1];
-        //Todo::Use Java 8 stream and lambda expression to exploit parallelism
-        Arrays.stream(weights).parallel().forEach(ws -> {
-            int i = ws.length - 1;
-            User u1 = users[i];
-            for (int j = 0; j < i; j++) {
-                User u2 = users[j];
-                double s1 = 0, s2 = 0, s3 = 0;
-                int m = 0;
-                int n = 0;
-                while (m < u1.movieIds.length && n < u2.movieIds.length) {
-                    int mid1 = u1.movieIds[m];
-                    int mid2 = u2.movieIds[n];
-                    if (mid1 < mid2) m++;
-                    else if (mid1 > mid2) n++;
-                    else {
-                        float v1 = u1.dRatings[m++];
-                        float v2 = u2.dRatings[n++];
-                        s1 += v1 * v2;
-                        s2 += v1 * v1;
-                        s3 += v2 * v2;
-                    }
-                }
-                if ((s3 *= s2) != 0) weights[i][j] = s1 / Math.sqrt(s3);
-            }
-            weights[i][i] = 1;
-        });
-    }
-
-    static double getWeight(int i, int j) {
-        return i > j ? weights[i][j] : weights[j][i];
-    }
-}
