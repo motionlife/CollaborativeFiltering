@@ -23,10 +23,10 @@ public class CollaborativeFiltering {
         double mae = 0, rmse = 0;
         StringBuilder content = new StringBuilder(3600000);
 
-        User.base = parseUsers(TRAININGDATA, true);
+        User.base = parseRatings(TRAININGDATA, true);
         content.append(log("Finished parsing training data."));
 
-        User[] testUsers = parseUsers(TESTINGDATA, false);
+        User[] testUsers = parseRatings(TESTINGDATA, false);
         content.append(log("Finished parsing testing data."));
 
         calCorrelation();
@@ -34,12 +34,10 @@ public class CollaborativeFiltering {
 
         //Todo::Use Java 8 stream and lambda expression to exploit parallelism
         Arrays.stream(testUsers).parallel()
-                .filter(tu -> tu.index > -1)
-                .forEach(tu -> {
-                    for (int i = 0; i < tu.movieIds.length; i++) tu.predict(i);
-                });
+                .filter(User::isValid)
+                .forEach(User::predict);
 
-        //isolate the prediction calculation from output for thread safe reason
+        //Isolate the output code from the prediction calculation for thread safe reason
         DecimalFormat df = new DecimalFormat("#.####");
         for (int i = 0; i < testUsers.length; i++) {
             User tu = testUsers[i];
@@ -57,14 +55,14 @@ public class CollaborativeFiltering {
         content.append(log("\nMean Absolute Error: " + mae / numberOfRatings
                 + "\nRoot Mean Squared Error: " + Math.sqrt(rmse / numberOfRatings)));
         content.append(log(memoStat()));
-        if (saveRunningResult(content.toString(), RESULTTEXT))
+        if (saveResult(content.toString(), RESULTTEXT))
             System.out.println("Success! Predicted results have been save to " + RESULTTEXT);
     }
 
     /**
      * Read the data set file convert them to user list
      */
-    private static User[] parseUsers(String name, boolean isBase) {
+    private static User[] parseRatings(String name, boolean isBase) {
         Map<Integer, Map<Integer, Float>> userRatings = new TreeMap<>();
         try (BufferedReader br = new BufferedReader(new FileReader(name))) {
             String line;
@@ -135,7 +133,7 @@ public class CollaborativeFiltering {
     /**
      * Save the running result to file
      */
-    private static boolean saveRunningResult(String content, String filename) {
+    private static boolean saveResult(String content, String filename) {
         boolean success = false;
         File file = new File(filename);
         try {
@@ -174,17 +172,18 @@ public class CollaborativeFiltering {
  */
 class User {
 
-    /**
-     * The below 3 array are bond by their indices
-     */
-    int[] movieIds;
-    float[] dRatings;
-    double[] pRatings;
+    static User[] base;//Store all the training examples, serve as an user database
 
-    float meanScore;
-    int index;//Will eventually become consecutive id from 0 -> number of users for fast accessing
-    static int[] Uids;//A map between the index of user in User[] and user id
-    static User[] base;
+    /**
+     * Those 3 arrays are bond by their indices
+     */
+    int[] movieIds;//store the movie ids
+    float[] dRatings;//store real rating of a movie, later updated to its deviation: v(i)-mean
+    double[] pRatings;//store predicted ratings, only constructed for test users
+
+    float ratingMean;
+    int index;//the index of an user object in base array
+    static int[] Uids;//A map between the user id an its position in base array
 
     //Construct a user by its first rating record
     public User(int uid) {
@@ -192,7 +191,7 @@ class User {
     }
 
     /**
-     * Pre-compute some useful parameters for later usage
+     * Pre-compute some useful variables and cache them for later usage
      */
     void preCompute(Map<Integer, Float> ratings, boolean isBase, int position) {
         int size = ratings.size();
@@ -201,14 +200,15 @@ class User {
         int i = 0;
         for (Map.Entry<Integer, Float> rating : ratings.entrySet()) {
             movieIds[i] = rating.getKey();
-            float r = rating.getValue();
-            dRatings[i++] = r;
-            if (isBase) meanScore += r;
+            dRatings[i++] = rating.getValue();
         }
         if (isBase) {
             index = position;
-            meanScore /= size;
-            for (int j = 0; j < size; j++) dRatings[j] -= meanScore;//cache (vote(j)-mean)
+            for (int j = 0; j < size; j++) {
+                ratingMean += dRatings[j];
+                dRatings[j] -= ratingMean;//cache (vote(j)-mean)
+            }
+            ratingMean /= size;
         } else {
             index = Arrays.binarySearch(Uids, index);//Will less than 0 if test user doesn't exist in database
             pRatings = new double[size];
@@ -216,24 +216,32 @@ class User {
     }
 
     /**
+     * Tell if the test user could be predicted, that is if it has ever been recorded before
+     */
+    boolean isValid() {
+        return index > -1;
+    }
+
+    /**
      * Method used to calculate the difference between the predicted rating and real rating for one movie
      * return the real rating value
      */
-    void predict(int i) {
-        double result = 0;
-        double norm = 0;
-        for (User user : base) {
-            int pos = Arrays.binarySearch(user.movieIds, movieIds[i]);
-            //if the user has ever rated this movie
-            if (pos > -1) {
-                double w = CollaborativeFiltering.getWeight(index, user.index);
-                if (w != 0) {
-                    norm += Math.abs(w);
-                    result += w * user.dRatings[pos];
+    void predict() {
+        for (int i = 0; i < movieIds.length; i++) {
+            double result = 0;
+            double norm = 0;
+            for (User user : base) {
+                int pos = Arrays.binarySearch(user.movieIds, movieIds[i]);
+                //if the user has ever rated this movie
+                if (pos > -1) {
+                    double w = CollaborativeFiltering.getWeight(index, user.index);
+                    if (w != 0) {
+                        norm += Math.abs(w);
+                        result += w * user.dRatings[pos];
+                    }
                 }
             }
+            pRatings[i] = base[index].ratingMean + (norm > 0 ? result / norm : 0);
         }
-        pRatings[i] = base[index].meanScore + (norm > 0 ? result / norm : 0);
     }
 }
-
