@@ -200,15 +200,16 @@ class User {
         int i = 0;
         for (Map.Entry<Integer, Float> rating : ratings.entrySet()) {
             movieIds[i] = rating.getKey();
-            dRatings[i++] = rating.getValue();
+            float r = rating.getValue();
+            dRatings[i++] = r;
+            if (isBase) ratingMean += r;
         }
         if (isBase) {
+            ratingMean /= size;
             index = position;
             for (int j = 0; j < size; j++) {
-                ratingMean += dRatings[j];
                 dRatings[j] -= ratingMean;//cache (vote(j)-mean)
             }
-            ratingMean /= size;
         } else {
             index = Arrays.binarySearch(Uids, index);//Will less than 0 if test user doesn't exist in database
             pRatings = new double[size];
