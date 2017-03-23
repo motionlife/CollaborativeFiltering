@@ -1,6 +1,6 @@
-Time(s):7.619860642000001 Finished parsing training data.
-Time(s):7.822572022 Finished parsing testing data.
-Time(s):236.08830801500002 Finished Matrix Calculation.
+Time(s):7.509479463000001 Finished parsing training data.
+Time(s):7.684320561000001 Finished parsing testing data.
+Time(s):231.85258288900002 Finished Matrix Calculation.
 User:7
 	Movie:9528=>4.52(5)
 	Movie:15496=>4.0245(5)
@@ -128034,12 +128034,12 @@ User:2519310
 	Movie:2430=>3.2755(1)
 	Movie:7145=>3.0194(3)
 	Movie:14185=>3.5187(3)
-Time(s):362.30881906800005 
+Time(s):359.13075919700003
 Mean Absolute Error: 0.6949234973323533
-Root Mean Squared Error: 0.8844601261449944
-Time(s):362.309439441 
+Root Mean Squared Error: 0.0027902477561784524
+Time(s):359.13158650400004
 ##### Heap utilization statistics [MB] #####
-Used Memory:3267.4062
-Free Memory:1639.5938
+Used Memory:3267.4065
+Free Memory:1639.5934
 Total Memory:4907.0
 Max Memory:4907.0
