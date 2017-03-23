@@ -128036,7 +128036,7 @@ User:2519310
 	Movie:14185=>3.5187(3)
 Time(s):359.13075919700003
 Mean Absolute Error: 0.6949234973323533
-Root Mean Squared Error: 0.0027902477561784524
+Root Mean Squared Error: 0.8844601261449944
 Time(s):359.13158650400004
 ##### Heap utilization statistics [MB] #####
 Used Memory:3267.4065
