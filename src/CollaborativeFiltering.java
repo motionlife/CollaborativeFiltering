@@ -19,7 +19,7 @@ public class CollaborativeFiltering {
 
     public static void main(String[] args) {
         STARTTIME = System.nanoTime();
-        int numberOfItems = 0;
+        int numberOfRatings = 0;
         double mae = 0, rmse = 0;
         StringBuilder content = new StringBuilder(3600000);
 
@@ -50,12 +50,12 @@ public class CollaborativeFiltering {
                 double error = pr - rr;
                 mae += Math.abs(error);
                 rmse += error * error;
-                numberOfItems++;
+                numberOfRatings++;
                 content.append("\tMovie:" + tu.movieIds[j] + "=>" + df.format(pr) + "(" + rr + ")\n");
             }
         }
-        content.append(log("\nMean Absolute Error: " + mae / numberOfItems
-                + "\nRoot Mean Squared Error: " + Math.sqrt(rmse / numberOfItems)));
+        content.append(log("\nMean Absolute Error: " + mae / numberOfRatings
+                + "\nRoot Mean Squared Error: " + Math.sqrt(rmse / numberOfRatings)));
         content.append(log(memoStat()));
         if (saveRunningResult(content.toString(), RESULTTEXT))
             System.out.println("Success! Predicted results have been save to " + RESULTTEXT);
