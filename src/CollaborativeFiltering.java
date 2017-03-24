@@ -15,7 +15,6 @@ public class CollaborativeFiltering {
     private static final String TESTINGDATA = "data/TestingRatings.txt";
     private static final String RESULTTEXT = "result.txt";
     private static long STARTTIME;
-    private static double[][] weights;//weights[i][j] represents the correlation between user i and j
 
     public static void main(String[] args) {
         STARTTIME = System.nanoTime();
@@ -29,12 +28,17 @@ public class CollaborativeFiltering {
         User[] testUsers = parseRatings(TESTINGDATA, false);
         content.append(log("Finished parsing testing data."));
 
-        calCorrelation();
+        //Todo::Use Java 8 stream and lambda expression to exploit parallelism
+        for (User user : User.base) {
+            Arrays.stream(User.base).parallel()
+                    .filter(user::needCalculate)
+                    .forEach(user::correlation);
+        }
         content.append(log("Finished Matrix Calculation."));
 
         //Todo::Use Java 8 stream and lambda expression to exploit parallelism
         Arrays.stream(testUsers).parallel()
-                .filter(User::isValid)
+                .filter(User::canBePredicted)
                 .forEach(User::predict);
 
         //Isolate the output code from the prediction calculation for thread safe reason
@@ -82,8 +86,13 @@ public class CollaborativeFiltering {
             e.printStackTrace();
         }
 
-        User[] users = new User[userRatings.size()];
-        if (isBase) User.Uids = new int[users.length];
+        int size = userRatings.size();
+        User[] users = new User[size];
+        if (isBase) {
+            User.Uids = new int[size];
+            User.weights = new double[size][];
+            for (int i = 0; i < size; i++) User.weights[i] = new double[i + 1];
+        }
         int i = 0;
         for (int uid : userRatings.keySet()) {
             if (isBase) User.Uids[i] = uid;//store uid into the mapping array Uid[]
@@ -92,42 +101,6 @@ public class CollaborativeFiltering {
             users[i++] = user;
         }
         return users;
-    }
-
-    static void calCorrelation() {
-        int size = User.Uids.length;
-        weights = new double[size][];
-        for (int i = 0; i < size; i++) weights[i] = new double[i + 1];
-        //Todo::Use Java 8 stream and lambda expression to exploit parallelism
-        Arrays.stream(weights).parallel().forEach(ws -> {
-            int i = ws.length - 1;
-            User u1 = User.base[i];
-            for (int j = 0; j < i; j++) {
-                User u2 = User.base[j];
-                double s1 = 0, s2 = 0, s3 = 0;
-                int m = 0;
-                int n = 0;
-                while (m < u1.movieIds.length && n < u2.movieIds.length) {
-                    int mid1 = u1.movieIds[m];
-                    int mid2 = u2.movieIds[n];
-                    if (mid1 < mid2) m++;
-                    else if (mid1 > mid2) n++;
-                    else {
-                        float v1 = u1.dRatings[m++];
-                        float v2 = u2.dRatings[n++];
-                        s1 += v1 * v2;
-                        s2 += v1 * v1;
-                        s3 += v2 * v2;
-                    }
-                }
-                if ((s3 *= s2) != 0) weights[i][j] = s1 / Math.sqrt(s3);
-            }
-            weights[i][i] = 1;
-        });
-    }
-
-    static double getWeight(int i, int j) {
-        return i > j ? weights[i][j] : weights[j][i];
     }
 
     /**
@@ -173,17 +146,19 @@ public class CollaborativeFiltering {
 class User {
 
     static User[] base;//Store all the training examples, serve as an user database
+    static int[] Uids;//A map between the user id an its position in base array
+    static double[][] weights;//weights[i][j] represents the correlation between user i and j
+
+    int index;//the index of an user object in base array
 
     /**
      * Those 3 arrays are bond by their indices
      */
     int[] movieIds;//store the movie ids
     float[] dRatings;//store real rating of a movie, later updated to its deviation: v(i)-mean
-    double[] pRatings;//store predicted ratings, only constructed for test users
 
+    double[] pRatings;//store predicted ratings, only constructed for test users
     float ratingMean;
-    int index;//the index of an user object in base array
-    static int[] Uids;//A map between the user id an its position in base array
 
     //Construct a user by its first rating record
     public User(int uid) {
@@ -219,7 +194,7 @@ class User {
     /**
      * Tell if the test user could be predicted, that is if it has ever been recorded before
      */
-    boolean isValid() {
+    boolean canBePredicted() {
         return index > -1;
     }
 
@@ -235,12 +210,46 @@ class User {
                 int pos = Arrays.binarySearch(user.movieIds, movieIds[i]);
                 //if the user has ever rated this movie
                 if (pos > -1) {
-                    double w = CollaborativeFiltering.getWeight(index, user.index);
+                    double w = User.getWeight(index, user.index);
                     norm += Math.abs(w);
                     result += w * user.dRatings[pos];
                 }
             }
             pRatings[i] = base[index].ratingMean + (norm > 0 ? result / norm : 0);
         }
+    }
+
+    /**
+     * If this user need to calculate correlation with the specified user
+     */
+    boolean needCalculate(User u) {
+        return index < u.index;
+    }
+
+    /**
+     * calculation the correlation between this user and another user
+     */
+    void correlation(User u) {
+        double s1 = 0, s2 = 0, s3 = 0;
+        int i = 0;
+        int j = 0;
+        while (i < movieIds.length && j < u.movieIds.length) {
+            int m = movieIds[i];
+            int n = u.movieIds[j];
+            if (m < n) i++;
+            else if (m > n) j++;
+            else {
+                float v1 = dRatings[i++];
+                float v2 = u.dRatings[j++];
+                s1 += v1 * v2;
+                s2 += v1 * v1;
+                s3 += v2 * v2;
+            }
+        }
+        if ((s3 *= s2) != 0) weights[u.index][index] = s1 / Math.sqrt(s3);
+    }
+
+    static double getWeight(int i, int j) {
+        return i > j ? weights[i][j] : weights[j][i];
     }
 }
