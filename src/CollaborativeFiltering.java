@@ -235,8 +235,8 @@ class User {
                 int pos = Arrays.binarySearch(user.movieIds, movieIds[i]);
                 //if the user has ever rated this movie
                 if (pos > -1) {
+                    double w = CollaborativeFiltering.getWeight(index, user.index);
                     if(w != 0) {
-                      double w = CollaborativeFiltering.getWeight(index, user.index);
                       norm += Math.abs(w);
                       result += w * user.dRatings[pos];
                     }
