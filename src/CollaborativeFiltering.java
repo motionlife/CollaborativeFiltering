@@ -211,8 +211,10 @@ class User {
                 //if the user has ever rated this movie
                 if (pos > -1) {
                     double w = User.getWeight(index, user.index);
-                    norm += Math.abs(w);
-                    result += w * user.dRatings[pos];
+                    if (w != 0) {
+                        norm += Math.abs(w);
+                        result += w * user.dRatings[pos];
+                    }
                 }
             }
             pRatings[i] = base[index].ratingMean + (norm > 0 ? result / norm : 0);
