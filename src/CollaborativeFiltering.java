@@ -236,10 +236,8 @@ class User {
                 //if the user has ever rated this movie
                 if (pos > -1) {
                     double w = CollaborativeFiltering.getWeight(index, user.index);
-                    if (w != 0) {
-                        norm += Math.abs(w);
-                        result += w * user.dRatings[pos];
-                    }
+                    norm += Math.abs(w);
+                    result += w * user.dRatings[pos];
                 }
             }
             pRatings[i] = base[index].ratingMean + (norm > 0 ? result / norm : 0);
