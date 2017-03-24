@@ -11,10 +11,10 @@ Require at least 5GB memory to run given data set:<br>
 
 ### ATTENTION
 This code uses java 8 stream technology to fully utilize the parallelism of your multicore cpu. 
-It will consume almost all of your cpu resource and more than 4gb ram at peak. When tested on my lousy laptop, it took only about 6 minutes to finish the job.
+It will consume almost all of your cpu resource and more than 4gb ram at peak. When tested on the computer in CS Open Lab, it took only about 3 minutes to finish the job.
 
 ### Result
-Running Time(s):359.131586504<br>
+Running Time(s):184.53090285500002<br>
 Mean Absolute Error: 0.6949234973323533<br>
 Root Mean Squared Error: 0.8844601261449944<br>
 ##### Heap utilization statistics [MB] #####
