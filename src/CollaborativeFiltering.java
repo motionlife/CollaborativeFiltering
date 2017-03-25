@@ -1,7 +1,7 @@
-/*
-  Creator: Hao Xiong (haoxiong@outlook.com)
-  Date: Mar 17, 2017
-  Data Source: Netflix Prize
+/**
+ * @author      Hao Xiong <haoxiong@outlook.com>
+ * @version     1.6          (current version number of program)
+ * @since       1.2          (the version of the package this class was first added to)
  */
 
 import java.io.*;
@@ -29,11 +29,10 @@ public class CollaborativeFiltering {
         content.append(log("Finished parsing testing data."));
 
         //Todo::Use Java 8 stream and lambda expression to exploit parallelism
-        for (User user : User.base) {
-            Arrays.stream(User.base).parallel()
-                    .filter(user::needCalculate)
-                    .forEach(user::correlation);
-        }
+        Arrays.stream(User.base).parallel()
+                .forEach(user -> Arrays.stream(User.base)
+                        .filter(user::needCalculate)
+                        .forEach(user::correlation));
         content.append(log("Finished Matrix Calculation."));
 
         //Todo::Use Java 8 stream and lambda expression to exploit parallelism
