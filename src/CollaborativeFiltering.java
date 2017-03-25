@@ -1,7 +1,7 @@
 /**
- * @author      Hao Xiong <haoxiong@outlook.com>
- * @version     1.6          (current version number of program)
- * @since       1.2          (the version of the package this class was first added to)
+ * @author Hao Xiong <haoxiong@outlook.com>
+ * @version 1.6          (current version number of program)
+ * @since 1.2          (the version of the package this class was first added to)
  */
 
 import java.io.*;
@@ -30,7 +30,7 @@ public class CollaborativeFiltering {
 
         //Todo::Use Java 8 stream and lambda expression to exploit parallelism
         Arrays.stream(User.base).parallel()
-                .forEach(user -> Arrays.stream(User.base)
+                .forEach(user -> Arrays.stream(User.base).parallel()
                         .filter(user::needCalculate)
                         .forEach(user::correlation));
         content.append(log("Finished Matrix Calculation."));
