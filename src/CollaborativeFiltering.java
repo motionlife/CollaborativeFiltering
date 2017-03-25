@@ -31,13 +31,13 @@ public class CollaborativeFiltering {
         //Todo::Use Java 8 stream and lambda expression to exploit parallelism
         Arrays.stream(User.base).parallel()
                 .forEach(user -> Arrays.stream(User.base).parallel()
-                        .filter(user::needCalculate)
-                        .forEach(user::correlation));
+                        .filter(user::hasNotRelateWith)
+                        .forEach(user::relateWith));
         content.append(log("Finished Matrix Calculation."));
 
         //Todo::Use Java 8 stream and lambda expression to exploit parallelism
         Arrays.stream(testUsers).parallel()
-                .filter(User::canBePredicted)
+                .filter(User::fromBase)
                 .forEach(User::predict);
 
         //Isolate the output code from the prediction calculation for thread safe reason
@@ -146,7 +146,7 @@ class User {
 
     static User[] base;//Store all the training examples, serve as an user database
     static int[] Uids;//A map between the user id an its position in base array
-    static double[][] weights;//weights[i][j] represents the correlation between user i and j
+    static double[][] weights;//weights[i][j] represents the relateWith between user i and j
 
     int index;//the index of an user object in base array
 
@@ -193,7 +193,7 @@ class User {
     /**
      * Tell if the test user could be predicted, that is if it has ever been recorded before
      */
-    boolean canBePredicted() {
+    boolean fromBase() {
         return index > -1;
     }
 
@@ -221,16 +221,16 @@ class User {
     }
 
     /**
-     * If this user need to calculate correlation with the specified user
+     * If this user need to calculate relateWith with the specified user
      */
-    boolean needCalculate(User u) {
+    boolean hasNotRelateWith(User u) {
         return index < u.index;
     }
 
     /**
-     * calculation the correlation between this user and another user
+     * calculation the relateWith between this user and another user
      */
-    void correlation(User u) {
+    void relateWith(User u) {
         double s1 = 0, s2 = 0, s3 = 0;
         int i = 0;
         int j = 0;
