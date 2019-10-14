@@ -11,7 +11,7 @@ Require at least 5GB memory to run given data set:<br>
 
 ### ATTENTION
 This code uses java 8 stream technology to fully utilize the parallelism of your multicore cpu. 
-It will consume almost all of your cpu resource and more than 4gb ram at peak. When tested on the computer in CS Open Lab, it took only about 3 minutes to finish the job.
+It will consume almost all of your cpu resource and more than 4gb ram at peak. When tested on our Markov Compute Engine, it took only about 20 seconds to finish the job.
 
 ### Result
 Running Time(s):184.53090285500002<br>
