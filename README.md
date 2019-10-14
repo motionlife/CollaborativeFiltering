@@ -14,7 +14,7 @@ This code uses java 8 stream technology to fully utilize the parallelism of your
 It will consume almost all of your cpu resource and more than 4gb ram at peak. When tested on our Markov Compute Engine, it took only about 20 seconds to finish the job.
 
 ### Result
-Running Time(s):184.53090285500002<br>
+Running Time(s):20.03090285500002<br>
 Mean Absolute Error: 0.6949234973323533<br>
 Root Mean Squared Error: 0.8844601261449944<br>
 ##### Heap utilization statistics [MB] #####
